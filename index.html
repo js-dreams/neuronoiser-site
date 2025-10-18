@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>neuronoiser | Mixed Intelligence Music Creator</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Marker+Hatch&display=swap" rel="stylesheet">
+
     <!-- Load Tailwind CSS CDN for styling --><script src="https://cdn.tailwindcss.com"></script>
     <!-- Custom Tailwind Configuration for dark/neon theme --><script>
         tailwind.config = {
@@ -71,6 +76,21 @@
             filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5)); /* Subtle shadow to lift the color */
             transition: transform 0.3s ease-in-out;
         }
+        .special-hebrew-font {
+            font-family: "Rubik Marker Hatch", system-ui;
+            font-weight: 400;
+            font-style: normal;
+            letter-spacing: 12px;
+        }
+        .stroke {
+            color: cyan;
+            text-shadow:
+            -1px -1px 0 cyan,
+            1px -1px 0 cyan,
+            -1px 1px 0 cyan,
+            1px 1px 0 cyan;  
+        }
+
     </style>
 </head>
 
@@ -93,8 +113,13 @@
                         neuronoiser
                     </h1>
                     <p class="mt-4 text-l md:text-2xl font-mono text-gray-300 neon-glow">
-                        Mixed Intelligence Music Creator
+                        Smart Noises For Curious Ears 
                     </p>
+                    <!--
+                    <p class="mt-4 text-l md:text-6xl text-cyan-600 special-hebrew-font stroke">
+                        מעניין באוזניים
+                    </p>
+                    -->
                 </div>
             </div>
         </header>
@@ -154,7 +179,7 @@
                         <div class="mx-auto w-full max-w-3xl px-6 py-12">
                             <article class="text-xl text-neon-cyan rounded-2xl border border-slate-200/70 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-800/60">
                                 <p class="mb-4 leading-relaxed">
-                                    neuronoiser (a.k.a Danny Reiser) creates <span class="font-semibold text-white">Mixed-Intelligence</span> music. That is, human incepted music, that is enhanced by AI tools.
+                                    neuronoiser (a.k.a Danny Reiser) creates <span class="font-semibold text-white">Mixed-Intelligence</span>, music. That is, human incepted music, enhanced by AI tools, while maintaining the creative wheel at the hands of the human creator.
                                 </p>
                                 <p class="mb-4 leading-relaxed">
                                     Every piece begins with an audio file he created himself, without the aid of AI, in fact, some of those musical ideas came into his head, and was recorded, many years before generative AI even existed (some goes back to 2001!). 
