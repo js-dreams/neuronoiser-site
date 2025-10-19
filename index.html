@@ -98,7 +98,30 @@
 
     <!-- AUDIO ELEMENT - MANDATORY SETUP --><!-- IMPORTANT: You must place your track in a folder named 'audio' as 'track.mp3' --><audio id="artistTrack" src="audio/track.mp3" preload="auto" loop></audio>
 
-    <div class="max-w-4xl mx-auto p-4 md:p-8 space-y-16">
+    <div class="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
+        <!-- MUSIC PLAYER & STATUS SECTION -->
+         <section id="music-player" class="bg-dark-gray p-2 rounded-xl shadow-lg border border-neon-cyan/30 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-8">
+            
+            <div class="flex items-center space-x-4">
+                <div id="statusIcon" class="status-indicator"></div>
+                <div class="text-xs md:text-lg font-mono tracking-wider">
+                    <span id="trackStatus">Track Loading...</span>
+                </div>
+                <!-- Simple Visualizer (CSS Animation) -->
+                 <div id="visualizer" class="hidden h-6 space-x-0.5 items-end ml-4">
+                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full"></div>
+                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.15s;"></div>
+                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.3s;"></div>
+                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.45s;"></div>
+                </div>
+            </div>
+
+            <!-- Custom Play/Pause Button --><button id="playPauseButton" class="h-6 text-sm w-full md:w-auto px-6 py-0 rounded-full font-bold transition duration-300 shadow-md shadow-neon-cyan/30
+                                                 bg-neon-cyan text-deep-indigo hover:bg-white hover:shadow-neon-cyan/70">
+                PLAY TRACK
+            </button>
+        </section>
+
 
         <!-- HEADER / HERO SECTION --><header id="hero-section" class="relative overflow-hidden rounded-xl shadow-2xl shadow-neon-cyan/20">
             <!-- Placeholder Hero Image - Replace this URL with your professional press photo or album art --><img 
@@ -123,27 +146,6 @@
                 </div>
             </div>
         </header>
-
-        <!-- MUSIC PLAYER & STATUS SECTION --><section id="music-player" class="bg-dark-gray p-6 rounded-xl shadow-lg border border-neon-cyan/30 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-8">
-            
-            <div class="flex items-center space-x-4">
-                <div id="statusIcon" class="status-indicator"></div>
-                <div class="text-lg font-mono tracking-wider">
-                    <span id="trackStatus">Track Loading...</span>
-                </div>
-                <!-- Simple Visualizer (CSS Animation) --><div id="visualizer" class="hidden h-6 space-x-0.5 items-end ml-4">
-                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full"></div>
-                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.15s;"></div>
-                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.3s;"></div>
-                    <div class="visualizer-bar w-1 h-full bg-neon-cyan/80 rounded-full" style="animation-delay: 0.45s;"></div>
-                </div>
-            </div>
-
-            <!-- Custom Play/Pause Button --><button id="playPauseButton" class="w-full md:w-auto px-6 py-3 rounded-full font-bold transition duration-300 shadow-md shadow-neon-cyan/30
-                                                 bg-neon-cyan text-deep-indigo hover:bg-white hover:shadow-neon-cyan/70">
-                PLAY TRACK
-            </button>
-        </section>
 
         <!-- STREAMING LINKS SECTION (EASY TO EDIT) --><section id="links-section" class="space-y-6">
             <h2 class="text-l md:text-4xl font-mono font-semibold text-neon-cyan border-b-2 border-neon-cyan/50 pb-2">
