@@ -112,6 +112,18 @@
     </style>
 </head>
 
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-F731SCX83Z"></script>
+<script>
+  if (window.location.origin !== "file://") {  
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-F731SCX83Z');
+  }
+</script>
+
 <body class="selection:bg-neon-cyan selection:text-deep-indigo">
 
     <!-- AUDIO ELEMENT - MANDATORY SETUP --><!-- IMPORTANT: You must place your track in a folder named 'audio' as 'track.mp3' --><audio id="artistTrack" src="audio/track.mp3" preload="auto" loop></audio>
