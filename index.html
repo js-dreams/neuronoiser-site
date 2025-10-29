@@ -307,6 +307,9 @@
 
             // Toggle Play/Pause on button click
             playPauseButton.addEventListener('click', () => {
+                var _statcounter = _statcounter || [];
+                _statcounter.push({"tags": {"playerInteraction": "true"}});
+
                 if (audio.paused || audio.ended) {
                     // Try to play the audio
                     audio.play()
