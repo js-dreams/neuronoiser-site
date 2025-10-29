@@ -316,6 +316,11 @@
 
             // Toggle Play/Pause on button click
             playPauseButton.addEventListener('click', () => {
+                gtag('event', 'button_click', {
+                    button_id: 'playPauseButton',
+                    action: audio.paused || audio.ended ? 'play' : 'pause'
+                });
+
                 if (audio.paused || audio.ended) {
                     // Try to play the audio
                     audio.play()
