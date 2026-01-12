@@ -3,15 +3,24 @@ import Hero from './components/Hero'
 import StreamingLinks from './components/StreamingLinks'
 import Bio from './components/Bio'
 import Footer from './components/Footer'
+import AnimatedSection from './components/AnimatedSection'
 
 function App() {
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
-            <MusicPlayer />
-            <Hero />
+            <AnimatedSection delay={150} animationType="animate-slide-in-bottom">
+                <MusicPlayer />
+            </AnimatedSection>
+            <AnimatedSection delay={400} animationType="animate-slide-in-top">
+                <Hero />
+            </AnimatedSection>
             <StreamingLinks />
-            <Bio />
-            <Footer />
+            <AnimatedSection delay={900}>
+                <Bio />
+            </AnimatedSection>
+            <AnimatedSection delay={1150} animationType="animate-slide-in-bottom">
+                <Footer />
+            </AnimatedSection>
         </div>
     )
 }

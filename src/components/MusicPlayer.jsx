@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import AnimatedSection from './AnimatedSection'
 
 const TRACK_NAME = 'Interstellar Communication'
 const VISUALIZER_DELAYS = ['0s', '0.15s', '0.3s', '0.45s']
@@ -105,14 +106,16 @@ function MusicPlayer() {
                 )}
             </div>
 
-            <button 
-                id="playPauseButton"
-                onClick={handlePlayPause}
-                disabled={hasError}
-                className="h-6 text-sm w-full md:w-auto px-6 py-0 rounded-full font-bold transition duration-300 shadow-md shadow-neon-cyan/30 bg-neon-cyan text-deep-indigo hover:bg-white hover:shadow-neon-cyan/70 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {buttonText}
-            </button>
+            <AnimatedSection delay={400} animationType="animate-slide-in-right">
+                <button 
+                    id="playPauseButton"
+                    onClick={handlePlayPause}
+                    disabled={hasError}
+                    className="h-6 text-sm w-full md:w-auto px-6 py-0 rounded-full font-bold transition duration-300 shadow-md shadow-neon-cyan/30 bg-neon-cyan text-deep-indigo hover:bg-white hover:shadow-neon-cyan/70 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {buttonText}
+                </button>
+            </AnimatedSection>
         </section>
     )
 }
