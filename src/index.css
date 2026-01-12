@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 /* Base styles for a deep, dark theme */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 body {
     background-color: #080614; /* Deep Indigo background */
     color: #E5E7EB; /* Light gray text */
