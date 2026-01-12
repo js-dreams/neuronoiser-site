@@ -45,6 +45,7 @@ git add -f index.html 2>/dev/null || true
 git add -f assets/ 2>/dev/null || true
 git add -f audio/ 2>/dev/null || true
 git add -f logos/ 2>/dev/null || true
+git add -f cassette.jpeg 2>/dev/null || true
 # Explicitly remove any unwanted directories/files if they exist
 git rm -rf node_modules src dist .vite package.json package-lock.json vite.config.js tailwind.config.js postcss.config.js deploy.sh .gitignore 2>/dev/null || true
 
