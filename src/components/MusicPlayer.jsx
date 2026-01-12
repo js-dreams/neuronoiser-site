@@ -185,17 +185,20 @@ function MusicPlayer() {
         ? 'PAUSED'
         : trackStatus
 
+
     return (
-        <section id="music-player" className="bg-dark-gray p-2 rounded-xl shadow-lg border border-neon-cyan/30 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-8">
+        <section id="music-player" className="bg-dark-gray p-2 rounded-xl shadow-lg border border-neon-cyan/30 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-8 overflow-hidden">
             <audio ref={audioRef} preload="auto"></audio>
             
-            <div className="flex items-center space-x-4 flex-1 min-w-0">
+            <div className="flex items-center space-x-4 flex-1 min-w-0 overflow-hidden">
                 <div 
                     id="statusIcon" 
-                    className={`status-indicator ${hasError ? 'bg-red-600' : (isPlaying ? 'animate-pulse-neon playing' : '')}`}
+                    className={`status-indicator flex-shrink-0 ${hasError ? 'bg-red-600' : (isPlaying ? 'animate-pulse-neon playing' : '')}`}
                 ></div>
-                <div className="text-xs md:text-lg font-mono tracking-wider truncate flex-1 min-w-0">
-                    <span id="trackStatus">{displayStatus}</span>
+                <div className="text-xs md:text-lg font-mono tracking-wider flex-1 min-w-0">
+                    <span id="trackStatus" className="break-words">
+                        {displayStatus}
+                    </span>
                 </div>
                 {isPlaying && (
                     <div id="visualizer" className="flex h-6 space-x-0.5 items-end ml-4">

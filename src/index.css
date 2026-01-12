@@ -101,11 +101,18 @@ body {
 }
 
 .streaming-name {
-    font-size: 1.125rem; /* text-lg */
+    font-size: 1rem; /* text-base - smaller on mobile */
     font-weight: 600; /* font-semibold */
     font-family: 'Roboto Mono', monospace;
     /* The base color is set by Tailwind on the <a> tag (e.g., text-[#1DB954]) */
     transition: color 0.3s;
+}
+
+/* Larger font size on md screens and above */
+@media (min-width: 768px) {
+    .streaming-name {
+        font-size: 1.125rem; /* text-lg */
+    }
 }
 
 .streaming-link:hover .streaming-name {
