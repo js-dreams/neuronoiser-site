@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Footer > matches snapshot 1`] = `
+<div>
+  <footer
+    class="text-center pt-8 border-t border-neon-cyan/20"
+  >
+    <p
+      class="text-gray-500 text-sm font-mono"
+    >
+      © 2026 neuronoiser. All Rights Reserved.
+    </p>
+    <p
+      class="text-gray-600 text-xs mt-1"
+    >
+      <a
+        class="hover:text-neon-cyan transition duration-200"
+        href="mailto:danny@neuronoiser.com"
+      >
+        Contact / Press Inquiries
+      </a>
+    </p>
+  </footer>
+</div>
+`;

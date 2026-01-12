@@ -1,0 +1,108 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`StreamingLinks > matches snapshot 1`] = `
+<div>
+  <section
+    class="space-y-6"
+    id="links-section"
+  >
+    <h2
+      class="text-l md:text-4xl font-mono font-semibold text-neon-cyan border-b-2 border-neon-cyan/50 pb-2"
+    >
+      / 
+      {
+       Listen Everywhere 
+      }
+    </h2>
+    <div
+      class="grid grid-cols-2 md:grid-cols-2 gap-4"
+    >
+      <a
+        class="streaming-link group"
+        href="https://open.spotify.com/artist/09Fjrj2Ojg0e1YPlYxsiHj"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <span
+          class="streaming-icon"
+        >
+          <img
+            alt="Spotify Logo"
+            class="w-8 h-8 object-contain transition duration-300 "
+            src="/logos/Spotify.png"
+          />
+        </span>
+        <span
+          class="streaming-name text-gray-300"
+        >
+          Spotify
+        </span>
+      </a>
+      <a
+        class="streaming-link group"
+        href="https://music.apple.com/us/artist/neuronoiser/1843991502"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <span
+          class="streaming-icon"
+        >
+          <img
+            alt="Apple Music Logo"
+            class="w-8 h-8 object-contain transition duration-300 "
+            src="/logos/apple-music.png"
+          />
+        </span>
+        <span
+          class="streaming-name text-gray-300"
+        >
+          Apple Music
+        </span>
+      </a>
+      <a
+        class="streaming-link group"
+        href="https://youtube.com/@neuronoiser"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <span
+          class="streaming-icon"
+        >
+          <img
+            alt="YouTube Logo"
+            class="w-8 h-8 object-contain transition duration-300 "
+            src="/logos/youtube.png"
+          />
+        </span>
+        <span
+          class="streaming-name text-gray-300"
+        >
+          YouTube
+        </span>
+      </a>
+      <a
+        class="streaming-link group"
+        href="https://soundcloud.com/neuronoiser"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <span
+          class="streaming-icon"
+        >
+          <img
+            alt="SoundCloud Logo"
+            class="w-8 h-8 object-contain transition duration-300 rounded"
+            src="/logos/soundcloud.png"
+            style="border-radius: 6px;"
+          />
+        </span>
+        <span
+          class="streaming-name text-gray-300"
+        >
+          SoundCloud
+        </span>
+      </a>
+    </div>
+  </section>
+</div>
+`;
