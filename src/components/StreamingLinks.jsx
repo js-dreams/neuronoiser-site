@@ -20,6 +20,22 @@ function StreamingLinks() {
             name: 'Apple Music',
             alt: 'Apple Music Logo',
             animationType: 'animate-slide-in-right'
+        },
+        {
+            href: 'https://youtube.com/@neuronoiser',
+            icon: '/logos/youtube.png',
+            fallback: 'https://placehold.co/32x32/FF0000/FFFFFF?text=YT',
+            name: 'YouTube',
+            alt: 'YouTube Logo',
+            animationType: 'animate-slide-in-left'
+        },
+        {
+            href: 'https://soundcloud.com/neuronoiser',
+            icon: '/logos/soundcloud.png',
+            fallback: 'https://placehold.co/32x32/FF5500/FFFFFF?text=SC',
+            name: 'SoundCloud',
+            alt: 'SoundCloud Logo',
+            animationType: 'animate-slide-in-right'
         }
     ]
 
@@ -47,7 +63,8 @@ function StreamingLinks() {
                                 <img 
                                     src={link.icon} 
                                     alt={link.alt} 
-                                    className="w-8 h-8 object-contain transition duration-300" 
+                                    className={`w-8 h-8 object-contain transition duration-300 ${link.name === 'SoundCloud' ? 'rounded' : ''}`}
+                                    style={link.name === 'SoundCloud' ? { borderRadius: '6px' } : {}}
                                     onError={(e) => handleImageError(e, link.fallback)}
                                 />
                             </span>
