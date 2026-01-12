@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Interstellar Communication",
+    "url": "https://drmi-discord-bot-bucket.s3.eu-north-1.amazonaws.com/Interstellar+Communication+-+master.mp3",
+    "spotifyURL": "https://open.spotify.com/track/4kbXxj7dJg12AELRwrapMG?si=787fad4abf9849b3"
+  },
+  {
+    "name": "Electric Fears",
+    "url": "https://drmi-discord-bot-bucket.s3.eu-north-1.amazonaws.com/Electric+Fears.mp3",
+    "spotifyURL": "https://open.spotify.com/track/2hUaKweMUO6GwLG4pSEaPM?si=33d1682992d94ff9"
+  },
+  {
+    "name": "The Drunken Bot Dance",
+    "url": "https://drmi-discord-bot-bucket.s3.eu-north-1.amazonaws.com/The+Drunken+Bot+Dance.mp3",
+    "spotifyURL": "https://open.spotify.com/track/1DlbBFvS9eiQtMeUZUTyxr?si=35a8b93dfd614b74"
+  },
+  {
+    "name": "Follow that signal!",
+    "url": "https://drmi-discord-bot-bucket.s3.eu-north-1.amazonaws.com/Follow+that+signal!.mp3",
+    "spotifyURL": "https://open.spotify.com/track/7deEEX14PTTqEHSVyNNOMZ?si=568cafd0a62e4f63"
+  },
+  {
+    "name": "Flux",
+    "url": "https://drmi-discord-bot-bucket.s3.eu-north-1.amazonaws.com/Flux.mp3"
+  }
+]
