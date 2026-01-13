@@ -5,6 +5,7 @@ const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
 const PLAYER_SPEED = 5
 const BULLET_SPEED = 8
+const HOMING_MISSILE_SPEED = 6
 const ENEMY_BULLET_SPEED = 5
 const ENEMY_SPEED = 2
 const ENEMY_SPAWN_RATE = 60 // frames
@@ -100,6 +101,8 @@ function AliensGame() {
     const [scoreMultiplierEndTime, setScoreMultiplierEndTime] = useState(null)
     const [magicDefenceActive, setMagicDefenceActive] = useState(false)
     const [magicDefenceEndTime, setMagicDefenceEndTime] = useState(null)
+    const [superWeaponActive, setSuperWeaponActive] = useState(false)
+    const [superWeaponEndTime, setSuperWeaponEndTime] = useState(null)
     
     const gameStateRef = useRef({ gameState, score, level, lives })
     const soundEnabledRef = useRef(soundEnabled)
@@ -110,6 +113,8 @@ function AliensGame() {
     const lifePowerupsRef = useRef([])
     const scoreBonusPowerupsRef = useRef([])
     const magicDefencePowerupsRef = useRef([])
+    const superWeaponPowerupsRef = useRef([])
+    const homingMissilesRef = useRef([])
     const keysRef = useRef({})
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
@@ -119,6 +124,7 @@ function AliensGame() {
     const nextPowerupSpawnFrameRef = useRef(null)
     const nextScoreBonusSpawnFrameRef = useRef(null)
     const nextMagicDefenceSpawnFrameRef = useRef(null)
+    const nextSuperWeaponSpawnFrameRef = useRef(null)
     const fireworksRef = useRef([])
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
@@ -260,6 +266,8 @@ function AliensGame() {
         setScoreMultiplierEndTime(null)
         setMagicDefenceActive(false)
         setMagicDefenceEndTime(null)
+        setSuperWeaponActive(false)
+        setSuperWeaponEndTime(null)
         setGameState('playing')
         setScore(0)
         setLevel(1)
@@ -271,6 +279,8 @@ function AliensGame() {
         lifePowerupsRef.current = []
         scoreBonusPowerupsRef.current = []
         magicDefencePowerupsRef.current = []
+        superWeaponPowerupsRef.current = []
+        homingMissilesRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
@@ -278,6 +288,7 @@ function AliensGame() {
         nextPowerupSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
         nextScoreBonusSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
         nextMagicDefenceSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+        nextSuperWeaponSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
     }, [])
 
     const gameOver = useCallback(() => {
@@ -458,6 +469,19 @@ function AliensGame() {
         }
     }, [magicDefenceEndTime])
 
+    // Super weapon timer
+    useEffect(() => {
+        if (superWeaponEndTime) {
+            const checkTimer = setInterval(() => {
+                if (Date.now() >= superWeaponEndTime) {
+                    setSuperWeaponActive(false)
+                    setSuperWeaponEndTime(null)
+                }
+            }, 100) // Check every 100ms
+            return () => clearInterval(checkTimer)
+        }
+    }, [superWeaponEndTime])
+
     // Save game state on unmount
     useEffect(() => {
         return () => {
@@ -613,6 +637,7 @@ function AliensGame() {
                         nextPowerupSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
                         nextScoreBonusSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
                         nextMagicDefenceSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+                        nextSuperWeaponSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
                         // Level up sound
                         if (soundEnabledRef.current) {
                             createSound(300, 0.1, 'square', 0.15)
@@ -666,15 +691,54 @@ function AliensGame() {
                 // Shooting
                 const shouldShoot = keysRef.current[' '] || touchRef.current.shootPressed
                 if (shouldShoot) {
-                    if (frameCountRef.current % 10 === 0) {
-                        bulletsRef.current.push({
-                            x: player.x,
-                            y: player.y - 30,
-                            width: 4,
-                            height: 12
-                        })
-                        // Shoot sound
-                        if (soundEnabledRef.current) createShootSound()
+                    if (superWeaponActive) {
+                        // Super weapon: fire homing missiles (never more than number of enemies, max 3, and only for enemies not already targeted)
+                        if (frameCountRef.current % 15 === 0) {
+                            // Find which enemies are already targeted by existing missiles
+                            const targetedEnemyIndices = new Set(
+                                homingMissilesRef.current
+                                    .filter(m => m.targetEnemyIndex !== null && 
+                                                m.targetEnemyIndex < enemiesRef.current.length &&
+                                                enemiesRef.current[m.targetEnemyIndex] !== undefined)
+                                    .map(m => m.targetEnemyIndex)
+                            )
+                            
+                            // Find enemies that are not yet targeted
+                            const availableEnemies = enemiesRef.current
+                                .map((enemy, index) => ({ enemy, index }))
+                                .filter(({ index }) => !targetedEnemyIndices.has(index))
+                            
+                            // Fire missiles for available enemies (max 3)
+                            const missileCount = Math.min(3, availableEnemies.length)
+                            
+                            if (missileCount > 0) {
+                                const spread = 20 // Horizontal spread for missiles
+                                for (let i = 0; i < missileCount; i++) {
+                                    const offsetX = (i - (missileCount - 1) / 2) * spread // Center the spread
+                                    homingMissilesRef.current.push({
+                                        x: player.x + offsetX,
+                                        y: player.y - 30,
+                                        width: 6,
+                                        height: 10,
+                                        targetEnemyIndex: null // Will be assigned during update
+                                    })
+                                }
+                                // Super weapon shoot sound (slightly different)
+                                if (soundEnabledRef.current) createShootSound()
+                            }
+                        }
+                    } else {
+                        // Regular shooting
+                        if (frameCountRef.current % 10 === 0) {
+                            bulletsRef.current.push({
+                                x: player.x,
+                                y: player.y - 30,
+                                width: 4,
+                                height: 12
+                            })
+                            // Shoot sound
+                            if (soundEnabledRef.current) createShootSound()
+                        }
                     }
                 }
 
@@ -682,6 +746,110 @@ function AliensGame() {
                 bulletsRef.current = bulletsRef.current
                     .map(bullet => ({ ...bullet, y: bullet.y - BULLET_SPEED }))
                     .filter(bullet => bullet.y > -bullet.height)
+
+                // Update homing missiles
+                if (enemiesRef.current.length > 0) {
+                    // Assign targets to missiles that don't have one (ensure unique targets)
+                    const assignedTargets = new Set(
+                        homingMissilesRef.current
+                            .filter(m => m.targetEnemyIndex !== null && 
+                                        m.targetEnemyIndex < enemiesRef.current.length &&
+                                        enemiesRef.current[m.targetEnemyIndex] !== undefined)
+                            .map(m => m.targetEnemyIndex)
+                    )
+                    
+                    homingMissilesRef.current.forEach(missile => {
+                        if (missile.targetEnemyIndex === null || 
+                            missile.targetEnemyIndex >= enemiesRef.current.length ||
+                            enemiesRef.current[missile.targetEnemyIndex] === undefined) {
+                            // Find nearest enemy that isn't already targeted
+                            let bestEnemyIndex = -1
+                            let bestDistance = Infinity
+                            
+                            enemiesRef.current.forEach((enemy, index) => {
+                                if (!assignedTargets.has(index)) {
+                                    const distance = Math.sqrt(
+                                        Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
+                                        Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
+                                    )
+                                    
+                                    if (distance < bestDistance) {
+                                        bestEnemyIndex = index
+                                        bestDistance = distance
+                                    }
+                                }
+                            })
+                            
+                            // If all enemies are targeted, find nearest anyway (fallback)
+                            if (bestEnemyIndex === -1 && enemiesRef.current.length > 0) {
+                                enemiesRef.current.forEach((enemy, index) => {
+                                    const distance = Math.sqrt(
+                                        Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
+                                        Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
+                                    )
+                                    if (distance < bestDistance) {
+                                        bestEnemyIndex = index
+                                        bestDistance = distance
+                                    }
+                                })
+                            }
+                            
+                            if (bestEnemyIndex !== -1) {
+                                missile.targetEnemyIndex = bestEnemyIndex
+                                assignedTargets.add(bestEnemyIndex)
+                            }
+                        }
+                    })
+                    
+                    // Move missiles toward their targets
+                    homingMissilesRef.current = homingMissilesRef.current
+                        .map(missile => {
+                            if (missile.targetEnemyIndex !== null && 
+                                missile.targetEnemyIndex < enemiesRef.current.length &&
+                                enemiesRef.current[missile.targetEnemyIndex] !== undefined) {
+                                const target = enemiesRef.current[missile.targetEnemyIndex]
+                                const targetX = target.x + target.width / 2
+                                const targetY = target.y + target.height / 2
+                                
+                                const dx = targetX - missile.x
+                                const dy = targetY - missile.y
+                                const distance = Math.sqrt(dx * dx + dy * dy)
+                                
+                                if (distance > 0) {
+                                    // Move toward target with homing behavior
+                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED
+                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED
+                                    
+                                    return {
+                                        ...missile,
+                                        x: missile.x + moveX,
+                                        y: missile.y + moveY
+                                    }
+                                }
+                            }
+                            // If no target, move upward
+                            return {
+                                ...missile,
+                                y: missile.y - HOMING_MISSILE_SPEED
+                            }
+                        })
+                        .filter(missile => {
+                            // Remove if off screen
+                            if (missile.y < -missile.height || missile.y > CANVAS_HEIGHT ||
+                                missile.x < -missile.width || missile.x > CANVAS_WIDTH) {
+                                return false
+                            }
+                            return true
+                        })
+                } else {
+                    // No enemies, just move missiles upward
+                    homingMissilesRef.current = homingMissilesRef.current
+                        .map(missile => ({
+                            ...missile,
+                            y: missile.y - HOMING_MISSILE_SPEED
+                        }))
+                        .filter(missile => missile.y > -missile.height)
+                }
 
                 // Update enemy bullets
                 enemyBulletsRef.current = enemyBulletsRef.current
@@ -801,6 +969,26 @@ function AliensGame() {
                     nextMagicDefenceSpawnFrameRef.current = null
                 }
 
+                // Spawn super weapon powerups at random intervals (approximately once per level)
+                if (nextSuperWeaponSpawnFrameRef.current !== null && frameCountRef.current >= nextSuperWeaponSpawnFrameRef.current) {
+                    // Generate spawn position that avoids player's x position
+                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    let spawnX
+                    let attempts = 0
+                    do {
+                        spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                        attempts++
+                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                    
+                    superWeaponPowerupsRef.current.push({
+                        x: spawnX,
+                        y: -LIFE_POWERUP_SIZE,
+                        size: LIFE_POWERUP_SIZE
+                    })
+                    // Clear the spawn frame - next level advance will schedule a new one
+                    nextSuperWeaponSpawnFrameRef.current = null
+                }
+
                 // Update life powerups
                 lifePowerupsRef.current = lifePowerupsRef.current
                     .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
@@ -870,6 +1058,32 @@ function AliensGame() {
                                 createSound(600, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(700, 0.1, 'square', 0.15), 50)
                                 setTimeout(() => createSound(800, 0.1, 'square', 0.15), 100)
+                            }
+                            return false
+                        }
+                        return true
+                    })
+
+                // Update super weapon powerups
+                superWeaponPowerupsRef.current = superWeaponPowerupsRef.current
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .filter(powerup => {
+                        if (powerup.y > CANVAS_HEIGHT) return false
+                        
+                        // Collision with player (collect powerup)
+                        const distance = Math.sqrt(
+                            Math.pow(powerup.x - player.x, 2) + 
+                            Math.pow(powerup.y - player.y, 2)
+                        )
+                        if (distance < powerup.size + 20) {
+                            // Activate super weapon for 20 seconds
+                            setSuperWeaponActive(true)
+                            setSuperWeaponEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // Powerup collect sound
+                            if (soundEnabledRef.current) {
+                                createSound(700, 0.1, 'square', 0.15)
+                                setTimeout(() => createSound(800, 0.1, 'square', 0.15), 50)
+                                setTimeout(() => createSound(900, 0.1, 'square', 0.15), 100)
                             }
                             return false
                         }
@@ -1002,6 +1216,80 @@ function AliensGame() {
                         return false
                     }
 
+                    return true
+                })
+
+                // Homing missile-enemy collisions
+                const missilesToRemove = new Set()
+                const enemiesToRemove = []
+                
+                homingMissilesRef.current.forEach((missile, missileIndex) => {
+                    // Check collision with enemies
+                    const hitEnemy = enemiesRef.current.findIndex(enemy => {
+                        const missileCenterX = missile.x + missile.width / 2
+                        const missileCenterY = missile.y + missile.height / 2
+                        const enemyCenterX = enemy.x + enemy.width / 2
+                        const enemyCenterY = enemy.y + enemy.height / 2
+                        
+                        const distance = Math.sqrt(
+                            Math.pow(missileCenterX - enemyCenterX, 2) +
+                            Math.pow(missileCenterY - enemyCenterY, 2)
+                        )
+                        
+                        // Collision detection with reasonable hitbox
+                        return distance < (missile.width + Math.max(enemy.width, enemy.height)) / 2
+                    })
+
+                    if (hitEnemy !== -1 && !enemiesToRemove.includes(hitEnemy)) {
+                        const destroyedEnemy = enemiesRef.current[hitEnemy]
+                        const enemyCenterX = destroyedEnemy.x + destroyedEnemy.width / 2
+                        const enemyCenterY = destroyedEnemy.y + destroyedEnemy.height / 2
+                        const BLAST_RADIUS = 60 // Radius for blast effect
+                        
+                        // Mark this missile for removal
+                        missilesToRemove.add(missileIndex)
+                        
+                        // Mark enemy for removal
+                        enemiesToRemove.push(hitEnemy)
+                        
+                        // Find and mark all nearby missiles for destruction (blast effect)
+                        homingMissilesRef.current.forEach((otherMissile, otherIndex) => {
+                            if (otherIndex !== missileIndex && !missilesToRemove.has(otherIndex)) {
+                                const otherMissileCenterX = otherMissile.x + otherMissile.width / 2
+                                const otherMissileCenterY = otherMissile.y + otherMissile.height / 2
+                                
+                                const distanceToBlast = Math.sqrt(
+                                    Math.pow(otherMissileCenterX - enemyCenterX, 2) +
+                                    Math.pow(otherMissileCenterY - enemyCenterY, 2)
+                                )
+                                
+                                if (distanceToBlast < BLAST_RADIUS) {
+                                    missilesToRemove.add(otherIndex)
+                                }
+                            }
+                        })
+                        
+                        // Mega enemies give 500 points, regular enemies give 100
+                        const basePoints = destroyedEnemy.isMega ? 500 : 100
+                        setScore(prev => prev + (basePoints * scoreMultiplier))
+                        // Enemy hit sound
+                        if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
+                    }
+                })
+                
+                // Remove destroyed enemies (in reverse order to maintain indices)
+                enemiesToRemove.sort((a, b) => b - a).forEach(index => {
+                    enemiesRef.current.splice(index, 1)
+                })
+                
+                // Remove destroyed missiles (in reverse order to maintain indices)
+                const missilesIndicesToRemove = Array.from(missilesToRemove).sort((a, b) => b - a)
+                missilesIndicesToRemove.forEach(index => {
+                    homingMissilesRef.current.splice(index, 1)
+                })
+
+                // Check collision with life powerups (destroy powerup if shot)
+                bulletsRef.current = bulletsRef.current.filter(bullet => {
                     // Check collision with life powerups (destroy powerup if shot)
                     const hitLifePowerup = lifePowerupsRef.current.findIndex(powerup => {
                         const distance = Math.sqrt(
@@ -1041,6 +1329,20 @@ function AliensGame() {
 
                     if (hitMagicDefencePowerup !== -1) {
                         magicDefencePowerupsRef.current.splice(hitMagicDefencePowerup, 1)
+                        return false
+                    }
+
+                    // Check collision with super weapon powerups (destroy powerup if shot)
+                    const hitSuperWeaponPowerup = superWeaponPowerupsRef.current.findIndex(powerup => {
+                        const distance = Math.sqrt(
+                            Math.pow(bullet.x - powerup.x, 2) + 
+                            Math.pow(bullet.y - powerup.y, 2)
+                        )
+                        return distance < powerup.size
+                    })
+
+                    if (hitSuperWeaponPowerup !== -1) {
+                        superWeaponPowerupsRef.current.splice(hitSuperWeaponPowerup, 1)
                         return false
                     }
 
@@ -1089,6 +1391,34 @@ function AliensGame() {
                 ctx.fillStyle = '#FFFF00'
                 bulletsRef.current.forEach(bullet => {
                     ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
+                })
+
+                // Draw homing missiles
+                ctx.fillStyle = '#FF6600'
+                ctx.strokeStyle = '#FFA500'
+                ctx.lineWidth = 1.5
+                homingMissilesRef.current.forEach(missile => {
+                    ctx.save()
+                    const centerX = missile.x + missile.width / 2
+                    const centerY = missile.y + missile.height / 2
+                    
+                    // Missile body (pointed shape)
+                    ctx.beginPath()
+                    ctx.moveTo(centerX, centerY - missile.height / 2) // Top point
+                    ctx.lineTo(centerX - missile.width / 2, centerY + missile.height / 2) // Bottom left
+                    ctx.lineTo(centerX, centerY + missile.height / 2 - 2) // Bottom center
+                    ctx.lineTo(centerX + missile.width / 2, centerY + missile.height / 2) // Bottom right
+                    ctx.closePath()
+                    ctx.fill()
+                    ctx.stroke()
+                    
+                    // Glow effect
+                    ctx.shadowBlur = 8
+                    ctx.shadowColor = '#FF6600'
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+                    
+                    ctx.restore()
                 })
 
                 // Draw enemy bullets
@@ -1274,6 +1604,66 @@ function AliensGame() {
                     ctx.shadowColor = '#9370DB'
                     ctx.fill()
                     ctx.shadowBlur = 0
+                    
+                    ctx.restore()
+                })
+
+                // Draw super weapon powerups
+                superWeaponPowerupsRef.current.forEach(powerup => {
+                    ctx.save()
+                    
+                    // Bright orange circle with glow
+                    const gradient = ctx.createRadialGradient(
+                        powerup.x - powerup.size * 0.3, 
+                        powerup.y - powerup.size * 0.3, 
+                        0,
+                        powerup.x, 
+                        powerup.y, 
+                        powerup.size
+                    )
+                    gradient.addColorStop(0, '#FFA500') // Bright orange
+                    gradient.addColorStop(0.5, '#FF8C00') // Darker orange
+                    gradient.addColorStop(1, '#FF6600') // Deep orange
+                    ctx.fillStyle = gradient
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Outer glow
+                    ctx.shadowBlur = 20
+                    ctx.shadowColor = '#FFA500'
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+
+                    // Weapon symbol (crosshair/target style)
+                    ctx.fillStyle = '#FFFFFF'
+                    ctx.strokeStyle = '#000000'
+                    ctx.lineWidth = 2
+                    
+                    const centerX = powerup.x
+                    const centerY = powerup.y
+                    const symbolSize = powerup.size * 0.5
+                    
+                    // Crosshair lines
+                    ctx.beginPath()
+                    // Horizontal line
+                    ctx.moveTo(centerX - symbolSize, centerY)
+                    ctx.lineTo(centerX + symbolSize, centerY)
+                    // Vertical line
+                    ctx.moveTo(centerX, centerY - symbolSize)
+                    ctx.lineTo(centerX, centerY + symbolSize)
+                    ctx.stroke()
+                    
+                    // Center circle
+                    ctx.beginPath()
+                    ctx.arc(centerX, centerY, symbolSize * 0.3, 0, Math.PI * 2)
+                    ctx.fill()
+                    ctx.stroke()
+                    
+                    // Outer circle
+                    ctx.beginPath()
+                    ctx.arc(centerX, centerY, symbolSize * 0.7, 0, Math.PI * 2)
+                    ctx.stroke()
                     
                     ctx.restore()
                 })
@@ -1511,7 +1901,7 @@ function AliensGame() {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime])
+    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
 
     if (isMobile) {
         // Mobile: Full screen canvas
