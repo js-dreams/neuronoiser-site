@@ -5,6 +5,7 @@ const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
 const PLAYER_SPEED = 5
 const BULLET_SPEED = 8
+const ENEMY_BULLET_SPEED = 5
 const ENEMY_SPEED = 2
 const ENEMY_SPAWN_RATE = 60 // frames
 const STAR_COUNT = 100
@@ -92,12 +93,15 @@ function AliensGame() {
     const [lives, setLives] = useState(1)
     const [soundEnabled, setSoundEnabled] = useState(true)
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
+    const [isCelebrating, setIsCelebrating] = useState(false)
+    const [celebrationStartTime, setCelebrationStartTime] = useState(null)
     
     const gameStateRef = useRef({ gameState, score, level, lives })
     const soundEnabledRef = useRef(soundEnabled)
     const playerRef = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 })
     const bulletsRef = useRef([])
     const enemiesRef = useRef([])
+    const enemyBulletsRef = useRef([])
     const lifePowerupsRef = useRef([])
     const keysRef = useRef({})
     const starsRef = useRef([])
@@ -106,6 +110,9 @@ function AliensGame() {
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
     const nextPowerupSpawnFrameRef = useRef(null)
+    const fireworksRef = useRef([])
+    const previousHighScoreRef = useRef(0)
+    const hasCelebratedThisGameRef = useRef(false)
 
     // Initialize stars
     useEffect(() => {
@@ -133,6 +140,25 @@ function AliensGame() {
         return 0.1 + (currentLevel - 1) * (2.9 / 9)
     }, [])
 
+    const getMegaEnemySpawnChance = useCallback((currentLevel) => {
+        // Level 1: 1% chance (extremely rare), Level 10: 80% chance (very common)
+        return 0.01 + (currentLevel - 1) * (0.79 / 9)
+    }, [])
+
+    const getMegaEnemyFireRate = useCallback((currentLevel) => {
+        // Level 1-3: Slow fire rate (fires once or twice), Level 4-6: Medium, Level 7-10: Rapid
+        if (currentLevel <= 3) {
+            // Level 1: 600 frames, Level 2: 500 frames, Level 3: 400 frames (allows at least one shot)
+            return 700 - (currentLevel - 1) * 100
+        } else if (currentLevel <= 6) {
+            // Level 4-6: Medium fire rate (120-90 frames)
+            return 150 - (currentLevel - 4) * 10
+        } else {
+            // Level 7-10: Rapid fire (60-30 frames)
+            return 75 - (currentLevel - 7) * 15
+        }
+    }, [])
+
     // Save game state to localStorage
     const saveGameState = useCallback(() => {
         if (gameStateRef.current.gameState === 'playing') {
@@ -144,6 +170,7 @@ function AliensGame() {
                 player: { ...playerRef.current },
                 enemies: [...enemiesRef.current],
                 bullets: [...bulletsRef.current],
+                enemyBullets: [...enemyBulletsRef.current],
                 lifePowerups: [...lifePowerupsRef.current],
                 frameCount: frameCountRef.current,
                 levelStartTime: levelStartTimeRef.current,
@@ -167,6 +194,7 @@ function AliensGame() {
                 playerRef.current = savedState.player
                 enemiesRef.current = savedState.enemies
                 bulletsRef.current = savedState.bullets
+                enemyBulletsRef.current = savedState.enemyBullets || []
                 lifePowerupsRef.current = savedState.lifePowerups
                 frameCountRef.current = savedState.frameCount
                 
@@ -189,10 +217,36 @@ function AliensGame() {
         return false
     }, [])
 
+    // Create firework particles
+    const createFireworks = useCallback((centerX, centerY) => {
+        const colors = ['#FF00FF', '#00FFFF', '#FFFF00', '#FF4444', '#00FF00', '#FF8800']
+        const particles = []
+        for (let i = 0; i < 50; i++) {
+            const angle = (Math.PI * 2 * i) / 50
+            const speed = 2 + Math.random() * 4
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.01 + Math.random() * 0.02,
+                color: color,
+                size: 2 + Math.random() * 3
+            })
+        }
+        return particles
+    }, [])
+
     const startGame = useCallback(() => {
         // Clear any saved game state
         localStorage.removeItem('aliensGameState')
         setCountdown(0)
+        setIsCelebrating(false)
+        setCelebrationStartTime(null)
+        fireworksRef.current = []
+        hasCelebratedThisGameRef.current = false
         setGameState('playing')
         setScore(0)
         setLevel(1)
@@ -200,6 +254,7 @@ function AliensGame() {
         playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
         bulletsRef.current = []
         enemiesRef.current = []
+        enemyBulletsRef.current = []
         lifePowerupsRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
@@ -211,8 +266,10 @@ function AliensGame() {
     const gameOver = useCallback(() => {
         setGameState('gameover')
         if (gameStateRef.current.score > highScore) {
-            setHighScore(gameStateRef.current.score)
-            localStorage.setItem('aliensHighScore', gameStateRef.current.score.toString())
+            const newHighScore = gameStateRef.current.score
+            setHighScore(newHighScore)
+            previousHighScoreRef.current = newHighScore
+            localStorage.setItem('aliensHighScore', newHighScore.toString())
         }
         // Game over sound
         if (soundEnabled) {
@@ -317,7 +374,9 @@ function AliensGame() {
     useEffect(() => {
         const saved = localStorage.getItem('aliensHighScore')
         if (saved) {
-            setHighScore(parseInt(saved, 10))
+            const savedHighScore = parseInt(saved, 10)
+            setHighScore(savedHighScore)
+            previousHighScoreRef.current = savedHighScore
         }
         
         // Try to restore game state
@@ -339,6 +398,22 @@ function AliensGame() {
             return () => clearTimeout(timer)
         }
     }, [countdown])
+
+    // Celebration timer (5 seconds)
+    useEffect(() => {
+        if (isCelebrating && celebrationStartTime) {
+            const timer = setTimeout(() => {
+                // Update high score after celebration
+                setHighScore(gameStateRef.current.score)
+                previousHighScoreRef.current = gameStateRef.current.score
+                localStorage.setItem('aliensHighScore', gameStateRef.current.score.toString())
+                setIsCelebrating(false)
+                setCelebrationStartTime(null)
+                fireworksRef.current = []
+            }, 5000)
+            return () => clearTimeout(timer)
+        }
+    }, [isCelebrating, celebrationStartTime])
 
     // Save game state on unmount
     useEffect(() => {
@@ -444,8 +519,36 @@ function AliensGame() {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
-            if (gameStateRef.current.gameState === 'playing' && countdown === 0) {
+            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !isCelebrating) {
                 frameCountRef.current++
+
+                // Check for new high score (only once per game, and only if there was a previous high score)
+                if (!hasCelebratedThisGameRef.current && 
+                    previousHighScoreRef.current > 0 && 
+                    gameStateRef.current.score > previousHighScoreRef.current && 
+                    !isCelebrating) {
+                    hasCelebratedThisGameRef.current = true
+                    setIsCelebrating(true)
+                    setCelebrationStartTime(Date.now())
+                    // Create multiple firework bursts at different positions
+                    const positions = [
+                        { x: CANVAS_WIDTH * 0.2, y: CANVAS_HEIGHT * 0.3 },
+                        { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.4 },
+                        { x: CANVAS_WIDTH * 0.8, y: CANVAS_HEIGHT * 0.3 },
+                        { x: CANVAS_WIDTH * 0.3, y: CANVAS_HEIGHT * 0.6 },
+                        { x: CANVAS_WIDTH * 0.7, y: CANVAS_HEIGHT * 0.6 }
+                    ]
+                    fireworksRef.current = []
+                    positions.forEach(pos => {
+                        fireworksRef.current.push(...createFireworks(pos.x, pos.y))
+                    })
+                    // Celebration sound
+                    if (soundEnabledRef.current) {
+                        createSound(400, 0.2, 'square', 0.3)
+                        setTimeout(() => createSound(500, 0.2, 'square', 0.3), 150)
+                        setTimeout(() => createSound(600, 0.3, 'square', 0.3), 300)
+                    }
+                }
 
                 // Level progression: advance level every 60 seconds
                 if (levelStartTimeRef.current && level < 10) {
@@ -470,6 +573,8 @@ function AliensGame() {
                 const currentEnemySpeed = getEnemySpeed(level)
                 const currentEnemySpawnRate = getEnemySpawnRate(level)
                 const currentEnemyHorizontalSpeed = getEnemyHorizontalSpeed(level)
+                const megaEnemySpawnChance = getMegaEnemySpawnChance(level)
+                const megaEnemyFireRate = getMegaEnemyFireRate(level)
 
                 // Player movement
                 const player = playerRef.current
@@ -525,17 +630,55 @@ function AliensGame() {
                     .map(bullet => ({ ...bullet, y: bullet.y - BULLET_SPEED }))
                     .filter(bullet => bullet.y > -bullet.height)
 
+                // Update enemy bullets
+                enemyBulletsRef.current = enemyBulletsRef.current
+                    .map(bullet => ({
+                        ...bullet,
+                        x: bullet.x + bullet.vx,
+                        y: bullet.y + bullet.vy
+                    }))
+                    .filter(bullet => {
+                        // Remove if off screen
+                        if (bullet.y > CANVAS_HEIGHT || bullet.x < 0 || bullet.x > CANVAS_WIDTH) {
+                            return false
+                        }
+                        
+                        // Collision with player
+                        if (
+                            bullet.x < player.x + 20 &&
+                            bullet.x + bullet.width > player.x - 20 &&
+                            bullet.y < player.y + 20 &&
+                            bullet.y + bullet.height > player.y - 20
+                        ) {
+                            setLives(prev => {
+                                const newLives = prev - 1
+                                // Lose life sound
+                                if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
+                                if (newLives <= 0) {
+                                    gameOver()
+                                }
+                                return newLives
+                            })
+                            return false
+                        }
+                        
+                        return true
+                    })
+
                 // Spawn enemies (using level-based spawn rate)
                 if (frameCountRef.current % Math.floor(currentEnemySpawnRate) === 0) {
                     // Random horizontal velocity (left or right)
                     const direction = Math.random() < 0.5 ? -1 : 1
+                    const isMega = Math.random() < megaEnemySpawnChance
                     enemiesRef.current.push({
                         x: Math.random() * (CANVAS_WIDTH - 40) + 20,
                         y: -30,
                         width: 30,
                         height: 30,
                         health: 1,
-                        vx: direction * (Math.random() * currentEnemyHorizontalSpeed + currentEnemyHorizontalSpeed * 0.5) // Random speed within range
+                        vx: direction * (Math.random() * currentEnemyHorizontalSpeed + currentEnemyHorizontalSpeed * 0.5), // Random speed within range
+                        isMega: isMega,
+                        lastShotFrame: null // Track when mega enemy last shot (null = hasn't shot yet)
                     })
                 }
 
@@ -589,7 +732,56 @@ function AliensGame() {
                             newX = Math.max(0, Math.min(CANVAS_WIDTH - enemy.width, newX)) // Clamp to bounds
                         }
                         
-                        return { ...enemy, x: newX, y: newY, vx: newVx }
+                        // Mega enemies fire bullets at the player
+                        let lastShotFrame = enemy.lastShotFrame
+                        if (enemy.isMega && enemy.y > 0 && enemy.y < CANVAS_HEIGHT - 100) {
+                            // Fire rate varies by level (slow at low levels, rapid at high levels)
+                            const fireRate = megaEnemyFireRate
+                            // If lastShotFrame is null, allow immediate firing (set to a value that will trigger firing)
+                            const framesSinceLastShot = lastShotFrame === null 
+                                ? fireRate // Allow immediate firing if hasn't shot yet
+                                : frameCountRef.current - lastShotFrame
+                            if (framesSinceLastShot >= fireRate) {
+                                // Shoot at player
+                                const dx = player.x - (enemy.x + enemy.width / 2)
+                                const dy = player.y - (enemy.y + enemy.height)
+                                const distance = Math.sqrt(dx * dx + dy * dy)
+                                const angle = Math.atan2(dy, dx)
+                                
+                                enemyBulletsRef.current.push({
+                                    x: enemy.x + enemy.width / 2,
+                                    y: enemy.y + enemy.height,
+                                    width: 4,
+                                    height: 8,
+                                    vx: Math.cos(angle) * ENEMY_BULLET_SPEED,
+                                    vy: Math.sin(angle) * ENEMY_BULLET_SPEED
+                                })
+                                
+                                lastShotFrame = frameCountRef.current
+                                
+                                // Enemy shoot sound (quieter, different pitch)
+                                if (soundEnabledRef.current) {
+                                    const ctx = getAudioContext()
+                                    if (ctx) {
+                                        try {
+                                            const oscillator = ctx.createOscillator()
+                                            const gainNode = ctx.createGain()
+                                            oscillator.connect(gainNode)
+                                            gainNode.connect(ctx.destination)
+                                            oscillator.type = 'sawtooth'
+                                            oscillator.frequency.setValueAtTime(800, ctx.currentTime)
+                                            oscillator.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1)
+                                            gainNode.gain.setValueAtTime(0.025, ctx.currentTime)
+                                            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
+                                            oscillator.start(ctx.currentTime)
+                                            oscillator.stop(ctx.currentTime + 0.1)
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+                        }
+                        
+                        return { ...enemy, x: newX, y: newY, vx: newVx, lastShotFrame }
                     })
                     .filter(enemy => {
                         if (enemy.y > CANVAS_HEIGHT) return false
@@ -631,8 +823,10 @@ function AliensGame() {
                     })
 
                     if (hitEnemy !== -1) {
+                        const destroyedEnemy = enemiesRef.current[hitEnemy]
                         enemiesRef.current.splice(hitEnemy, 1)
-                        setScore(prev => prev + 100)
+                        // Mega enemies give 500 points, regular enemies give 100
+                        setScore(prev => prev + (destroyedEnemy.isMega ? 500 : 100))
                         // Enemy hit sound
                         if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
                         return false
@@ -677,6 +871,12 @@ function AliensGame() {
                     ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
                 })
 
+                // Draw enemy bullets
+                ctx.fillStyle = '#FF4444'
+                enemyBulletsRef.current.forEach(bullet => {
+                    ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
+                })
+
                 // Draw enemies
                 enemiesRef.current.forEach(enemy => {
                     ctx.fillStyle = '#FF00FF'
@@ -690,11 +890,50 @@ function AliensGame() {
                     ctx.fill()
                     ctx.shadowBlur = 0
 
-                    // Enemy details
-                    ctx.fillStyle = '#FF0088'
-                    ctx.beginPath()
-                    ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 4, 0, Math.PI * 2)
-                    ctx.fill()
+                    // Enemy details or skull for mega enemies
+                    if (enemy.isMega) {
+                        // Draw skull symbol
+                        ctx.fillStyle = '#FFFFFF'
+                        ctx.strokeStyle = '#000000'
+                        ctx.lineWidth = 2
+                        
+                        const centerX = enemy.x + enemy.width / 2
+                        const centerY = enemy.y + enemy.height / 2
+                        const size = enemy.width / 3
+                        
+                        // Skull shape (simplified 80's style)
+                        ctx.beginPath()
+                        // Head (circle)
+                        ctx.arc(centerX, centerY - size * 0.2, size * 0.7, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.stroke()
+                        
+                        // Eye sockets
+                        ctx.fillStyle = '#000000'
+                        ctx.beginPath()
+                        ctx.arc(centerX - size * 0.25, centerY - size * 0.3, size * 0.15, 0, Math.PI * 2)
+                        ctx.arc(centerX + size * 0.25, centerY - size * 0.3, size * 0.15, 0, Math.PI * 2)
+                        ctx.fill()
+                        
+                        // Jaw/teeth (simple triangle)
+                        ctx.fillStyle = '#FFFFFF'
+                        ctx.strokeStyle = '#000000'
+                        ctx.beginPath()
+                        ctx.moveTo(centerX - size * 0.4, centerY + size * 0.1)
+                        ctx.lineTo(centerX, centerY + size * 0.6)
+                        ctx.lineTo(centerX + size * 0.4, centerY + size * 0.1)
+                        ctx.closePath()
+                        ctx.fill()
+                        ctx.stroke()
+                        
+                        ctx.lineWidth = 1
+                    } else {
+                        // Regular enemy details
+                        ctx.fillStyle = '#FF0088'
+                        ctx.beginPath()
+                        ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 4, 0, Math.PI * 2)
+                        ctx.fill()
+                    }
                 })
 
                 // Draw life powerups
@@ -722,9 +961,64 @@ function AliensGame() {
                 })
             }
 
+            // Update and draw fireworks (even during celebration) - before context restore
+            if (isCelebrating) {
+                fireworksRef.current = fireworksRef.current
+                    .map(particle => ({
+                        ...particle,
+                        x: particle.x + particle.vx,
+                        y: particle.y + particle.vy,
+                        vy: particle.vy + 0.1, // gravity
+                        life: particle.life - particle.decay
+                    }))
+                    .filter(particle => particle.life > 0)
+                
+                // Draw fireworks (in logical coordinates, before context restore)
+                if (fireworksRef.current.length > 0) {
+                    fireworksRef.current.forEach(particle => {
+                        ctx.save()
+                        ctx.globalAlpha = particle.life
+                        ctx.fillStyle = particle.color
+                        ctx.shadowBlur = 10
+                        ctx.shadowColor = particle.color
+                        ctx.beginPath()
+                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.shadowBlur = 0
+                        ctx.restore()
+                    })
+                }
+            }
+
             // Restore context if we scaled it (mobile) - before drawing UI
             if (isMobile) {
                 ctx.restore()
+            }
+
+            // Draw celebration overlay (HIGH SCORE!)
+            if (isCelebrating) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+                ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
+                
+                ctx.fillStyle = '#FFFF00'
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'middle'
+                if (isMobile) {
+                    const scaleX = canvas.width / CANVAS_WIDTH
+                    const scaleY = canvas.height / CANVAS_HEIGHT
+                    const fontScale = scaleX
+                    ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                    ctx.fillText('HIGH SCORE!', canvas.width / 2, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                    ctx.font = `bold ${32 * fontScale}px "Courier New", monospace`
+                    ctx.fillText(`${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
+                } else {
+                    ctx.font = 'bold 48px "Courier New", monospace'
+                    ctx.fillText('HIGH SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60)
+                    ctx.font = 'bold 32px "Courier New", monospace'
+                    ctx.fillText(`${gameStateRef.current.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20)
+                }
+                ctx.textAlign = 'left'
+                ctx.textBaseline = 'alphabetic'
             }
 
             // Draw countdown overlay
@@ -881,7 +1175,7 @@ function AliensGame() {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, countdown])
+    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks])
 
     if (isMobile) {
         // Mobile: Full screen canvas
