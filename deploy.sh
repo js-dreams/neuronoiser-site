@@ -30,15 +30,15 @@ cp -r dist/* "$TEMP_DIST/" 2>/dev/null || true
 if git show-ref --verify --quiet refs/heads/gh-pages; then
     echo "📌 Switching to existing gh-pages branch..."
     git checkout gh-pages
-    # Remove all files and directories (except .git) from filesystem
-    find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
-    # Also remove all tracked files from git index
+    # Remove tracked files from git index first
     git rm -rf . --quiet 2>/dev/null || true
+    # Remove files and directories except .git and ignored directories (node_modules, .vite, dist)
+    find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'node_modules' ! -name '.vite' ! -name 'dist' -exec rm -rf {} + 2>/dev/null || true
 else
     echo "✨ Creating new gh-pages branch..."
     git checkout --orphan gh-pages
-    # Remove all files (git rm doesn't work on orphan branch)
-    find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
+    # Remove files except .git and ignored directories (node_modules, .vite, dist)
+    find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'node_modules' ! -name '.vite' ! -name 'dist' -exec rm -rf {} + 2>/dev/null || true
 fi
 
 # Copy dist contents from temporary location to root
