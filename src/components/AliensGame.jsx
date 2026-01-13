@@ -8,6 +8,9 @@ const BULLET_SPEED = 8
 const ENEMY_SPEED = 2
 const ENEMY_SPAWN_RATE = 60 // frames
 const STAR_COUNT = 100
+const LEVEL_DURATION_FRAMES = 3600 // 60 seconds at 60fps
+const LIFE_POWERUP_SPEED = 2
+const LIFE_POWERUP_SIZE = 25
 
 function AliensGame() {
     const canvasRef = useRef(null)
@@ -19,17 +22,20 @@ function AliensGame() {
     const [highScore, setHighScore] = useState(0)
     const [isMobile, setIsMobile] = useState(false)
     const [level, setLevel] = useState(1)
+    const [lives, setLives] = useState(1)
     
-    const gameStateRef = useRef({ gameState, score, level })
+    const gameStateRef = useRef({ gameState, score, level, lives })
     const playerRef = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 })
     const bulletsRef = useRef([])
     const enemiesRef = useRef([])
+    const lifePowerupsRef = useRef([])
     const keysRef = useRef({})
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
     const touchRef = useRef({ x: null, y: null, isTouching: false, shootPressed: false })
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
+    const nextPowerupSpawnFrameRef = useRef(null)
 
     // Initialize stars
     useEffect(() => {
@@ -56,12 +62,16 @@ function AliensGame() {
         setGameState('playing')
         setScore(0)
         setLevel(1)
+        setLives(1)
         playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
         bulletsRef.current = []
         enemiesRef.current = []
+        lifePowerupsRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
+        // Set first powerup spawn at a random time within the first level (0 to LEVEL_DURATION_FRAMES)
+        nextPowerupSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
     }, [])
 
     const gameOver = useCallback(() => {
@@ -196,8 +206,8 @@ function AliensGame() {
 
     // Update game state ref
     useEffect(() => {
-        gameStateRef.current = { gameState, score, level }
-    }, [gameState, score, level])
+        gameStateRef.current = { gameState, score, level, lives }
+    }, [gameState, score, level, lives])
 
     // Track game entry with analytics
     useEffect(() => {
@@ -273,6 +283,8 @@ function AliensGame() {
                         setLevel(newLevel)
                         levelStartTimeRef.current = Date.now()
                         levelAnnouncementStartTimeRef.current = Date.now()
+                        // Set next powerup spawn at a random time within the new level
+                        nextPowerupSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
                     }
                 }
 
@@ -343,6 +355,35 @@ function AliensGame() {
                     })
                 }
 
+                // Spawn life powerups at random intervals (approximately once per level)
+                if (nextPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextPowerupSpawnFrameRef.current) {
+                    lifePowerupsRef.current.push({
+                        x: Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE,
+                        y: -LIFE_POWERUP_SIZE,
+                        size: LIFE_POWERUP_SIZE
+                    })
+                    // Clear the spawn frame - next level advance will schedule a new one
+                    nextPowerupSpawnFrameRef.current = null
+                }
+
+                // Update life powerups
+                lifePowerupsRef.current = lifePowerupsRef.current
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .filter(powerup => {
+                        if (powerup.y > CANVAS_HEIGHT) return false
+                        
+                        // Collision with player (collect powerup)
+                        const distance = Math.sqrt(
+                            Math.pow(powerup.x - player.x, 2) + 
+                            Math.pow(powerup.y - player.y, 2)
+                        )
+                        if (distance < powerup.size + 20) {
+                            setLives(prev => prev + 1)
+                            return false
+                        }
+                        return true
+                    })
+
                 // Update enemies (using level-based speed)
                 enemiesRef.current = enemiesRef.current
                     .map(enemy => ({ ...enemy, y: enemy.y + currentEnemySpeed }))
@@ -356,7 +397,13 @@ function AliensGame() {
                             enemy.y < player.y + 20 &&
                             enemy.y + enemy.height > player.y - 20
                         ) {
-                            gameOver()
+                            setLives(prev => {
+                                const newLives = prev - 1
+                                if (newLives <= 0) {
+                                    gameOver()
+                                }
+                                return newLives
+                            })
                             return false
                         }
                         return true
@@ -364,6 +411,7 @@ function AliensGame() {
 
                 // Bullet-enemy collisions
                 bulletsRef.current = bulletsRef.current.filter(bullet => {
+                    // Check collision with enemies
                     const hitEnemy = enemiesRef.current.findIndex(enemy => {
                         if (
                             bullet.x < enemy.x + enemy.width &&
@@ -381,6 +429,21 @@ function AliensGame() {
                         setScore(prev => prev + 100)
                         return false
                     }
+
+                    // Check collision with life powerups (destroy powerup if shot)
+                    const hitPowerup = lifePowerupsRef.current.findIndex(powerup => {
+                        const distance = Math.sqrt(
+                            Math.pow(bullet.x - powerup.x, 2) + 
+                            Math.pow(bullet.y - powerup.y, 2)
+                        )
+                        return distance < powerup.size
+                    })
+
+                    if (hitPowerup !== -1) {
+                        lifePowerupsRef.current.splice(hitPowerup, 1)
+                        return false
+                    }
+
                     return true
                 })
 
@@ -424,6 +487,30 @@ function AliensGame() {
                     ctx.beginPath()
                     ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 4, 0, Math.PI * 2)
                     ctx.fill()
+                })
+
+                // Draw life powerups
+                lifePowerupsRef.current.forEach(powerup => {
+                    // Blue circle
+                    ctx.fillStyle = '#0088FF'
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Powerup glow
+                    ctx.shadowBlur = 15
+                    ctx.shadowColor = '#0088FF'
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+
+                    // "+1" text
+                    ctx.fillStyle = '#FFFFFF'
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    ctx.font = 'bold 14px "Courier New", monospace'
+                    ctx.fillText('+1', powerup.x, powerup.y)
+                    ctx.textAlign = 'left'
+                    ctx.textBaseline = 'alphabetic'
                 })
             }
 
@@ -483,14 +570,17 @@ function AliensGame() {
                 const y1 = fontSize + 5
                 const y2 = fontSize * 2 + 10
                 const y3 = fontSize * 3 + 15
+                const y4 = fontSize * 4 + 20
                 ctx.fillText(`Score: ${gameStateRef.current.score}`, x, y1)
                 ctx.fillText(`High Score: ${highScore}`, x, y2)
                 ctx.fillText(`Level: ${level}`, x, y3)
+                ctx.fillText(`Lives: ${gameStateRef.current.lives}`, x, y4)
             } else {
                 ctx.font = '20px "Courier New", monospace'
                 ctx.fillText(`Score: ${gameStateRef.current.score}`, 20, 30)
                 ctx.fillText(`High Score: ${highScore}`, 20, 60)
                 ctx.fillText(`Level: ${level}`, 20, 90)
+                ctx.fillText(`Lives: ${gameStateRef.current.lives}`, 20, 120)
             }
 
             if (gameStateRef.current.gameState === 'menu') {
