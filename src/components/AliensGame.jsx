@@ -12,6 +12,7 @@ const STAR_COUNT = 100
 const LEVEL_DURATION_FRAMES = 3600 // 60 seconds at 60fps
 const LIFE_POWERUP_SPEED = 2
 const LIFE_POWERUP_SIZE = 25
+const POWERUP_DURATION_SECONDS = 20 // Duration for 3X and Magic Defence
 
 // Sound system - 80's computer style sounds
 let audioContext = null
@@ -95,6 +96,10 @@ function AliensGame() {
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
     const [isCelebrating, setIsCelebrating] = useState(false)
     const [celebrationStartTime, setCelebrationStartTime] = useState(null)
+    const [scoreMultiplier, setScoreMultiplier] = useState(1) // 1 or 3
+    const [scoreMultiplierEndTime, setScoreMultiplierEndTime] = useState(null)
+    const [magicDefenceActive, setMagicDefenceActive] = useState(false)
+    const [magicDefenceEndTime, setMagicDefenceEndTime] = useState(null)
     
     const gameStateRef = useRef({ gameState, score, level, lives })
     const soundEnabledRef = useRef(soundEnabled)
@@ -103,6 +108,8 @@ function AliensGame() {
     const enemiesRef = useRef([])
     const enemyBulletsRef = useRef([])
     const lifePowerupsRef = useRef([])
+    const scoreBonusPowerupsRef = useRef([])
+    const magicDefencePowerupsRef = useRef([])
     const keysRef = useRef({})
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
@@ -110,6 +117,8 @@ function AliensGame() {
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
     const nextPowerupSpawnFrameRef = useRef(null)
+    const nextScoreBonusSpawnFrameRef = useRef(null)
+    const nextMagicDefenceSpawnFrameRef = useRef(null)
     const fireworksRef = useRef([])
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
@@ -247,6 +256,10 @@ function AliensGame() {
         setCelebrationStartTime(null)
         fireworksRef.current = []
         hasCelebratedThisGameRef.current = false
+        setScoreMultiplier(1)
+        setScoreMultiplierEndTime(null)
+        setMagicDefenceActive(false)
+        setMagicDefenceEndTime(null)
         setGameState('playing')
         setScore(0)
         setLevel(1)
@@ -256,11 +269,15 @@ function AliensGame() {
         enemiesRef.current = []
         enemyBulletsRef.current = []
         lifePowerupsRef.current = []
+        scoreBonusPowerupsRef.current = []
+        magicDefencePowerupsRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
         // Set first powerup spawn at a random time within the first level (0 to LEVEL_DURATION_FRAMES)
         nextPowerupSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+        nextScoreBonusSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+        nextMagicDefenceSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
     }, [])
 
     const gameOver = useCallback(() => {
@@ -415,6 +432,32 @@ function AliensGame() {
         }
     }, [isCelebrating, celebrationStartTime])
 
+    // 3X score multiplier timer
+    useEffect(() => {
+        if (scoreMultiplierEndTime) {
+            const checkTimer = setInterval(() => {
+                if (Date.now() >= scoreMultiplierEndTime) {
+                    setScoreMultiplier(1)
+                    setScoreMultiplierEndTime(null)
+                }
+            }, 100) // Check every 100ms
+            return () => clearInterval(checkTimer)
+        }
+    }, [scoreMultiplierEndTime])
+
+    // Magic defence timer
+    useEffect(() => {
+        if (magicDefenceEndTime) {
+            const checkTimer = setInterval(() => {
+                if (Date.now() >= magicDefenceEndTime) {
+                    setMagicDefenceActive(false)
+                    setMagicDefenceEndTime(null)
+                }
+            }, 100) // Check every 100ms
+            return () => clearInterval(checkTimer)
+        }
+    }, [magicDefenceEndTime])
+
     // Save game state on unmount
     useEffect(() => {
         return () => {
@@ -568,6 +611,8 @@ function AliensGame() {
                         levelAnnouncementStartTimeRef.current = Date.now()
                         // Set next powerup spawn at a random time within the new level
                         nextPowerupSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+                        nextScoreBonusSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+                        nextMagicDefenceSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
                         // Level up sound
                         if (soundEnabledRef.current) {
                             createSound(300, 0.1, 'square', 0.15)
@@ -658,15 +703,21 @@ function AliensGame() {
                             bullet.y < player.y + 20 &&
                             bullet.y + bullet.height > player.y - 20
                         ) {
-                            setLives(prev => {
-                                const newLives = prev - 1
-                                // Lose life sound
-                                if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
-                                if (newLives <= 0) {
-                                    gameOver()
-                                }
-                                return newLives
-                            })
+                            if (magicDefenceActive) {
+                                // Magic defence active: bullet does nothing (player is invincible)
+                                // No sound, just remove the bullet
+                            } else {
+                                // Normal collision: lose life
+                                setLives(prev => {
+                                    const newLives = prev - 1
+                                    // Lose life sound
+                                    if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
+                                    if (newLives <= 0) {
+                                        gameOver()
+                                    }
+                                    return newLives
+                                })
+                            }
                             return false
                         }
                         
@@ -692,13 +743,62 @@ function AliensGame() {
 
                 // Spawn life powerups at random intervals (approximately once per level)
                 if (nextPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextPowerupSpawnFrameRef.current) {
+                    // Generate spawn position that avoids player's x position
+                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    let spawnX
+                    let attempts = 0
+                    do {
+                        spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                        attempts++
+                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                    
                     lifePowerupsRef.current.push({
-                        x: Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE,
+                        x: spawnX,
                         y: -LIFE_POWERUP_SIZE,
                         size: LIFE_POWERUP_SIZE
                     })
                     // Clear the spawn frame - next level advance will schedule a new one
                     nextPowerupSpawnFrameRef.current = null
+                }
+
+                // Spawn 3X score bonus powerups at random intervals (approximately once per level)
+                if (nextScoreBonusSpawnFrameRef.current !== null && frameCountRef.current >= nextScoreBonusSpawnFrameRef.current) {
+                    // Generate spawn position that avoids player's x position
+                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    let spawnX
+                    let attempts = 0
+                    do {
+                        spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                        attempts++
+                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                    
+                    scoreBonusPowerupsRef.current.push({
+                        x: spawnX,
+                        y: -LIFE_POWERUP_SIZE,
+                        size: LIFE_POWERUP_SIZE
+                    })
+                    // Clear the spawn frame - next level advance will schedule a new one
+                    nextScoreBonusSpawnFrameRef.current = null
+                }
+
+                // Spawn magic defence powerups at random intervals (approximately once per level)
+                if (nextMagicDefenceSpawnFrameRef.current !== null && frameCountRef.current >= nextMagicDefenceSpawnFrameRef.current) {
+                    // Generate spawn position that avoids player's x position
+                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    let spawnX
+                    let attempts = 0
+                    do {
+                        spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                        attempts++
+                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                    
+                    magicDefencePowerupsRef.current.push({
+                        x: spawnX,
+                        y: -LIFE_POWERUP_SIZE,
+                        size: LIFE_POWERUP_SIZE
+                    })
+                    // Clear the spawn frame - next level advance will schedule a new one
+                    nextMagicDefenceSpawnFrameRef.current = null
                 }
 
                 // Update life powerups
@@ -718,6 +818,58 @@ function AliensGame() {
                             if (soundEnabledRef.current) {
                                 createSound(400, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(600, 0.1, 'square', 0.15), 50)
+                            }
+                            return false
+                        }
+                        return true
+                    })
+
+                // Update 3X score bonus powerups
+                scoreBonusPowerupsRef.current = scoreBonusPowerupsRef.current
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .filter(powerup => {
+                        if (powerup.y > CANVAS_HEIGHT) return false
+                        
+                        // Collision with player (collect powerup)
+                        const distance = Math.sqrt(
+                            Math.pow(powerup.x - player.x, 2) + 
+                            Math.pow(powerup.y - player.y, 2)
+                        )
+                        if (distance < powerup.size + 20) {
+                            // Activate 3X score multiplier for 20 seconds
+                            setScoreMultiplier(3)
+                            setScoreMultiplierEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // Powerup collect sound
+                            if (soundEnabledRef.current) {
+                                createSound(500, 0.1, 'square', 0.15)
+                                setTimeout(() => createSound(600, 0.1, 'square', 0.15), 50)
+                                setTimeout(() => createSound(700, 0.1, 'square', 0.15), 100)
+                            }
+                            return false
+                        }
+                        return true
+                    })
+
+                // Update magic defence powerups
+                magicDefencePowerupsRef.current = magicDefencePowerupsRef.current
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .filter(powerup => {
+                        if (powerup.y > CANVAS_HEIGHT) return false
+                        
+                        // Collision with player (collect powerup)
+                        const distance = Math.sqrt(
+                            Math.pow(powerup.x - player.x, 2) + 
+                            Math.pow(powerup.y - player.y, 2)
+                        )
+                        if (distance < powerup.size + 20) {
+                            // Activate magic defence for 20 seconds
+                            setMagicDefenceActive(true)
+                            setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // Powerup collect sound
+                            if (soundEnabledRef.current) {
+                                createSound(600, 0.1, 'square', 0.15)
+                                setTimeout(() => createSound(700, 0.1, 'square', 0.15), 50)
+                                setTimeout(() => createSound(800, 0.1, 'square', 0.15), 100)
                             }
                             return false
                         }
@@ -801,15 +953,24 @@ function AliensGame() {
                             enemy.y < player.y + 20 &&
                             enemy.y + enemy.height > player.y - 20
                         ) {
-                            setLives(prev => {
-                                const newLives = prev - 1
-                                // Lose life sound
-                                if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
-                                if (newLives <= 0) {
-                                    gameOver()
-                                }
-                                return newLives
-                            })
+                            if (magicDefenceActive) {
+                                // Magic defence active: give points instead of losing life
+                                const basePoints = enemy.isMega ? 500 : 100
+                                setScore(prev => prev + (basePoints * scoreMultiplier))
+                                // Defence hit sound
+                                if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
+                            } else {
+                                // Normal collision: lose life
+                                setLives(prev => {
+                                    const newLives = prev - 1
+                                    // Lose life sound
+                                    if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
+                                    if (newLives <= 0) {
+                                        gameOver()
+                                    }
+                                    return newLives
+                                })
+                            }
                             return false
                         }
                         return true
@@ -834,14 +995,15 @@ function AliensGame() {
                         const destroyedEnemy = enemiesRef.current[hitEnemy]
                         enemiesRef.current.splice(hitEnemy, 1)
                         // Mega enemies give 500 points, regular enemies give 100
-                        setScore(prev => prev + (destroyedEnemy.isMega ? 500 : 100))
+                        const basePoints = destroyedEnemy.isMega ? 500 : 100
+                        setScore(prev => prev + (basePoints * scoreMultiplier))
                         // Enemy hit sound
                         if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
                         return false
                     }
 
                     // Check collision with life powerups (destroy powerup if shot)
-                    const hitPowerup = lifePowerupsRef.current.findIndex(powerup => {
+                    const hitLifePowerup = lifePowerupsRef.current.findIndex(powerup => {
                         const distance = Math.sqrt(
                             Math.pow(bullet.x - powerup.x, 2) + 
                             Math.pow(bullet.y - powerup.y, 2)
@@ -849,8 +1011,36 @@ function AliensGame() {
                         return distance < powerup.size
                     })
 
-                    if (hitPowerup !== -1) {
-                        lifePowerupsRef.current.splice(hitPowerup, 1)
+                    if (hitLifePowerup !== -1) {
+                        lifePowerupsRef.current.splice(hitLifePowerup, 1)
+                        return false
+                    }
+
+                    // Check collision with 3X score bonus powerups (destroy powerup if shot)
+                    const hitScoreBonusPowerup = scoreBonusPowerupsRef.current.findIndex(powerup => {
+                        const distance = Math.sqrt(
+                            Math.pow(bullet.x - powerup.x, 2) + 
+                            Math.pow(bullet.y - powerup.y, 2)
+                        )
+                        return distance < powerup.size
+                    })
+
+                    if (hitScoreBonusPowerup !== -1) {
+                        scoreBonusPowerupsRef.current.splice(hitScoreBonusPowerup, 1)
+                        return false
+                    }
+
+                    // Check collision with magic defence powerups (destroy powerup if shot)
+                    const hitMagicDefencePowerup = magicDefencePowerupsRef.current.findIndex(powerup => {
+                        const distance = Math.sqrt(
+                            Math.pow(bullet.x - powerup.x, 2) + 
+                            Math.pow(bullet.y - powerup.y, 2)
+                        )
+                        return distance < powerup.size
+                    })
+
+                    if (hitMagicDefencePowerup !== -1) {
+                        magicDefencePowerupsRef.current.splice(hitMagicDefencePowerup, 1)
                         return false
                     }
 
@@ -872,6 +1062,28 @@ function AliensGame() {
                 ctx.shadowColor = '#00FFFF'
                 ctx.fill()
                 ctx.shadowBlur = 0
+
+                // Draw magic defence shield (circular, fading as time runs out)
+                if (magicDefenceActive && magicDefenceEndTime) {
+                    const timeRemaining = (magicDefenceEndTime - Date.now()) / 1000
+                    const maxTime = POWERUP_DURATION_SECONDS
+                    const opacity = Math.max(0.3, timeRemaining / maxTime) // Fade from 1.0 to 0.3
+                    
+                    ctx.save()
+                    ctx.globalAlpha = opacity
+                    ctx.strokeStyle = '#800080'
+                    ctx.lineWidth = 3
+                    ctx.beginPath()
+                    ctx.arc(player.x, player.y, 30, 0, Math.PI * 2)
+                    ctx.stroke()
+                    
+                    // Shield glow
+                    ctx.shadowBlur = 20
+                    ctx.shadowColor = '#800080'
+                    ctx.stroke()
+                    ctx.shadowBlur = 0
+                    ctx.restore()
+                }
 
                 // Draw bullets
                 ctx.fillStyle = '#FFFF00'
@@ -966,6 +1178,66 @@ function AliensGame() {
                     ctx.fillText('+1', powerup.x, powerup.y)
                     ctx.textAlign = 'left'
                     ctx.textBaseline = 'alphabetic'
+                })
+
+                // Draw 3X score bonus powerups
+                scoreBonusPowerupsRef.current.forEach(powerup => {
+                    // Olive green circle
+                    ctx.fillStyle = '#808000'
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Powerup glow
+                    ctx.shadowBlur = 15
+                    ctx.shadowColor = '#808000'
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+
+                    // "3X" text
+                    ctx.fillStyle = '#FFFFFF'
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    ctx.font = 'bold 14px "Courier New", monospace'
+                    ctx.fillText('3X', powerup.x, powerup.y)
+                    ctx.textAlign = 'left'
+                    ctx.textBaseline = 'alphabetic'
+                })
+
+                // Draw magic defence powerups
+                magicDefencePowerupsRef.current.forEach(powerup => {
+                    // Purple circle
+                    ctx.fillStyle = '#800080'
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Powerup glow
+                    ctx.shadowBlur = 15
+                    ctx.shadowColor = '#800080'
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+
+                    // Shield symbol (classic shield shape: rounded top, pointed bottom)
+                    ctx.fillStyle = '#FFFFFF'
+                    ctx.strokeStyle = '#000000'
+                    ctx.lineWidth = 1.5
+                    ctx.beginPath()
+                    // Top arc (rounded top of shield)
+                    ctx.arc(powerup.x, powerup.y - powerup.size * 0.2, powerup.size * 0.4, Math.PI, 0, false)
+                    // Left side to point
+                    ctx.lineTo(powerup.x - powerup.size * 0.3, powerup.y + powerup.size * 0.4)
+                    // Bottom point
+                    ctx.lineTo(powerup.x, powerup.y + powerup.size * 0.5)
+                    // Right side back to arc
+                    ctx.lineTo(powerup.x + powerup.size * 0.3, powerup.y + powerup.size * 0.4)
+                    ctx.closePath()
+                    ctx.fill()
+                    ctx.stroke()
+                    
+                    ctx.textAlign = 'left'
+                    ctx.textBaseline = 'alphabetic'
+                    ctx.lineWidth = 1
                 })
             }
 
@@ -1105,12 +1377,30 @@ function AliensGame() {
                 ctx.fillText(`High Score: ${highScore}`, x, y2)
                 ctx.fillText(`Level: ${level}`, x, y3)
                 ctx.fillText(`Lives: ${gameStateRef.current.lives}`, x, y4)
+                
+                // Draw 3X multiplier indicator with countdown
+                if (scoreMultiplierEndTime) {
+                    const timeRemaining = Math.max(0, Math.ceil((scoreMultiplierEndTime - Date.now()) / 1000))
+                    if (timeRemaining > 0) {
+                        ctx.fillStyle = '#FFFF00'
+                        ctx.fillText(`3X Score: ${timeRemaining}s`, x, y4 + fontSize + 5)
+                    }
+                }
             } else {
                 ctx.font = '20px "Courier New", monospace'
                 ctx.fillText(`Score: ${gameStateRef.current.score}`, 20, 30)
                 ctx.fillText(`High Score: ${highScore}`, 20, 60)
                 ctx.fillText(`Level: ${level}`, 20, 90)
                 ctx.fillText(`Lives: ${gameStateRef.current.lives}`, 20, 120)
+                
+                // Draw 3X multiplier indicator with countdown
+                if (scoreMultiplierEndTime) {
+                    const timeRemaining = Math.max(0, Math.ceil((scoreMultiplierEndTime - Date.now()) / 1000))
+                    if (timeRemaining > 0) {
+                        ctx.fillStyle = '#FFFF00'
+                        ctx.fillText(`3X Score: ${timeRemaining}s`, 20, 150)
+                    }
+                }
             }
 
             if (gameStateRef.current.gameState === 'menu') {
@@ -1183,7 +1473,7 @@ function AliensGame() {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks])
+    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime])
 
     if (isMobile) {
         // Mobile: Full screen canvas
