@@ -1182,15 +1182,37 @@ function AliensGame() {
 
                 // Draw 3X score bonus powerups
                 scoreBonusPowerupsRef.current.forEach(powerup => {
-                    // Olive green circle
-                    ctx.fillStyle = '#808000'
+                    ctx.save()
+                    
+                    // Outer glow for shiny effect
+                    ctx.shadowBlur = 20
+                    ctx.shadowColor = '#00FF00'
+                    ctx.fillStyle = '#32CD32'
                     ctx.beginPath()
                     ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
                     ctx.fill()
                     
-                    // Powerup glow
-                    ctx.shadowBlur = 15
-                    ctx.shadowColor = '#808000'
+                    // Bright shiny green gradient circle
+                    const gradient = ctx.createRadialGradient(
+                        powerup.x - powerup.size * 0.3, 
+                        powerup.y - powerup.size * 0.3, 
+                        0,
+                        powerup.x, 
+                        powerup.y, 
+                        powerup.size
+                    )
+                    gradient.addColorStop(0, '#ADFF2F') // Bright yellow-green
+                    gradient.addColorStop(0.5, '#32CD32') // Lime green
+                    gradient.addColorStop(1, '#228B22') // Forest green
+                    ctx.fillStyle = gradient
+                    ctx.shadowBlur = 0
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Additional inner glow for shine
+                    ctx.shadowBlur = 8
+                    ctx.shadowColor = '#ADFF2F'
                     ctx.fill()
                     ctx.shadowBlur = 0
 
@@ -1202,42 +1224,58 @@ function AliensGame() {
                     ctx.fillText('3X', powerup.x, powerup.y)
                     ctx.textAlign = 'left'
                     ctx.textBaseline = 'alphabetic'
+                    
+                    ctx.restore()
                 })
 
                 // Draw magic defence powerups
                 magicDefencePowerupsRef.current.forEach(powerup => {
-                    // Purple circle
-                    ctx.fillStyle = '#800080'
+                    ctx.save()
+                    
+                    // Aura effect - multiple glowing layers
+                    const auraColors = [
+                        { color: '#9370DB', opacity: 0.4, blur: 25, radius: powerup.size * 1.4 },
+                        { color: '#8A2BE2', opacity: 0.3, blur: 20, radius: powerup.size * 1.2 },
+                        { color: '#6A0DAD', opacity: 0.2, blur: 15, radius: powerup.size * 1.0 }
+                    ]
+                    
+                    auraColors.forEach(aura => {
+                        ctx.globalAlpha = aura.opacity
+                        ctx.shadowBlur = aura.blur
+                        ctx.shadowColor = aura.color
+                        ctx.fillStyle = aura.color
+                        ctx.beginPath()
+                        ctx.arc(powerup.x, powerup.y, aura.radius, 0, Math.PI * 2)
+                        ctx.fill()
+                    })
+                    
+                    ctx.shadowBlur = 0
+                    ctx.globalAlpha = 1.0
+                    
+                    // Base circle with purple-blue gradient effect
+                    const gradient = ctx.createRadialGradient(
+                        powerup.x - powerup.size * 0.3, 
+                        powerup.y - powerup.size * 0.3, 
+                        0,
+                        powerup.x, 
+                        powerup.y, 
+                        powerup.size
+                    )
+                    gradient.addColorStop(0, '#9370DB')
+                    gradient.addColorStop(0.5, '#8A2BE2')
+                    gradient.addColorStop(1, '#4B0082')
+                    ctx.fillStyle = gradient
                     ctx.beginPath()
                     ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
                     ctx.fill()
                     
-                    // Powerup glow
-                    ctx.shadowBlur = 15
-                    ctx.shadowColor = '#800080'
+                    // Inner glow
+                    ctx.shadowBlur = 10
+                    ctx.shadowColor = '#9370DB'
                     ctx.fill()
                     ctx.shadowBlur = 0
-
-                    // Shield symbol (classic shield shape: rounded top, pointed bottom)
-                    ctx.fillStyle = '#FFFFFF'
-                    ctx.strokeStyle = '#000000'
-                    ctx.lineWidth = 1.5
-                    ctx.beginPath()
-                    // Top arc (rounded top of shield)
-                    ctx.arc(powerup.x, powerup.y - powerup.size * 0.2, powerup.size * 0.4, Math.PI, 0, false)
-                    // Left side to point
-                    ctx.lineTo(powerup.x - powerup.size * 0.3, powerup.y + powerup.size * 0.4)
-                    // Bottom point
-                    ctx.lineTo(powerup.x, powerup.y + powerup.size * 0.5)
-                    // Right side back to arc
-                    ctx.lineTo(powerup.x + powerup.size * 0.3, powerup.y + powerup.size * 0.4)
-                    ctx.closePath()
-                    ctx.fill()
-                    ctx.stroke()
                     
-                    ctx.textAlign = 'left'
-                    ctx.textBaseline = 'alphabetic'
-                    ctx.lineWidth = 1
+                    ctx.restore()
                 })
             }
 
