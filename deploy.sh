@@ -21,22 +21,29 @@ else
     echo "⚠️  Warning: CNAME file not found"
 fi
 
+# Store absolute path to dist before switching branches
+DIST_PATH=$(pwd)/dist
+
 # Check if gh-pages branch exists
 if git show-ref --verify --quiet refs/heads/gh-pages; then
     echo "📌 Switching to existing gh-pages branch..."
     git checkout gh-pages
-    git rm -rf . --quiet
+    # Remove all files and directories (except .git) from filesystem
+    find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
+    # Also remove all tracked files from git index
+    git rm -rf . --quiet 2>/dev/null || true
 else
     echo "✨ Creating new gh-pages branch..."
     git checkout --orphan gh-pages
-    git rm -rf . --quiet 2>/dev/null || true
+    # Remove all files (git rm doesn't work on orphan branch)
+    find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
 fi
 
-# Copy dist contents to root
+# Copy dist contents to root (using absolute path)
 echo "📁 Copying build files..."
-cp -r dist/* .
-if [ -f "dist/CNAME" ]; then
-    cp dist/CNAME . 2>/dev/null || true
+cp -r "$DIST_PATH"/* .
+if [ -f "$DIST_PATH/CNAME" ]; then
+    cp "$DIST_PATH/CNAME" . 2>/dev/null || true
 fi
 
 # Add only the built files (explicitly exclude node_modules, src, etc)
