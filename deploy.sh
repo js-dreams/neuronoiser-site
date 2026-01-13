@@ -21,8 +21,10 @@ else
     echo "⚠️  Warning: CNAME file not found"
 fi
 
-# Store absolute path to dist before switching branches
-DIST_PATH=$(pwd)/dist
+# Copy dist to a temporary location before switching branches (outside git working dir)
+TEMP_DIST=$(mktemp -d)
+echo "📦 Storing build files in temporary location..."
+cp -r dist/* "$TEMP_DIST/" 2>/dev/null || true
 
 # Check if gh-pages branch exists
 if git show-ref --verify --quiet refs/heads/gh-pages; then
@@ -39,12 +41,11 @@ else
     find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
 fi
 
-# Copy dist contents to root (using absolute path)
+# Copy dist contents from temporary location to root
 echo "📁 Copying build files..."
-cp -r "$DIST_PATH"/* .
-if [ -f "$DIST_PATH/CNAME" ]; then
-    cp "$DIST_PATH/CNAME" . 2>/dev/null || true
-fi
+cp -r "$TEMP_DIST"/* . 2>/dev/null || true
+# Clean up temporary directory
+rm -rf "$TEMP_DIST"
 
 # Add only the built files (explicitly exclude node_modules, src, etc)
 git add -f CNAME 2>/dev/null || true
