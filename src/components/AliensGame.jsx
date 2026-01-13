@@ -18,8 +18,9 @@ function AliensGame() {
     const [score, setScore] = useState(0)
     const [highScore, setHighScore] = useState(0)
     const [isMobile, setIsMobile] = useState(false)
+    const [level, setLevel] = useState(1)
     
-    const gameStateRef = useRef({ gameState, score })
+    const gameStateRef = useRef({ gameState, score, level })
     const playerRef = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 })
     const bulletsRef = useRef([])
     const enemiesRef = useRef([])
@@ -27,6 +28,8 @@ function AliensGame() {
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
     const touchRef = useRef({ x: null, y: null, isTouching: false, shootPressed: false })
+    const levelStartTimeRef = useRef(null)
+    const levelAnnouncementStartTimeRef = useRef(null)
 
     // Initialize stars
     useEffect(() => {
@@ -38,13 +41,27 @@ function AliensGame() {
         }))
     }, [])
 
+    // Calculate difficulty based on level (1-10)
+    const getEnemySpeed = useCallback((currentLevel) => {
+        // Level 1: 2, Level 10: 5 (easy to very hard)
+        return 2 + (currentLevel - 1) * (3 / 9)
+    }, [])
+
+    const getEnemySpawnRate = useCallback((currentLevel) => {
+        // Level 1: 60 frames, Level 10: 20 frames (slower to faster spawning)
+        return Math.max(20, 60 - (currentLevel - 1) * (40 / 9))
+    }, [])
+
     const startGame = useCallback(() => {
         setGameState('playing')
         setScore(0)
+        setLevel(1)
         playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
         bulletsRef.current = []
         enemiesRef.current = []
         frameCountRef.current = 0
+        levelStartTimeRef.current = Date.now()
+        levelAnnouncementStartTimeRef.current = Date.now()
     }, [])
 
     const gameOver = useCallback(() => {
@@ -179,8 +196,8 @@ function AliensGame() {
 
     // Update game state ref
     useEffect(() => {
-        gameStateRef.current = { gameState, score }
-    }, [gameState, score])
+        gameStateRef.current = { gameState, score, level }
+    }, [gameState, score, level])
 
     // Track game entry with analytics
     useEffect(() => {
@@ -248,6 +265,21 @@ function AliensGame() {
             if (gameStateRef.current.gameState === 'playing') {
                 frameCountRef.current++
 
+                // Level progression: advance level every 60 seconds
+                if (levelStartTimeRef.current && level < 10) {
+                    const timeInLevel = (Date.now() - levelStartTimeRef.current) / 1000 // seconds
+                    if (timeInLevel >= 60) {
+                        const newLevel = level + 1
+                        setLevel(newLevel)
+                        levelStartTimeRef.current = Date.now()
+                        levelAnnouncementStartTimeRef.current = Date.now()
+                    }
+                }
+
+                // Get current level-based difficulty
+                const currentEnemySpeed = getEnemySpeed(level)
+                const currentEnemySpawnRate = getEnemySpawnRate(level)
+
                 // Player movement
                 const player = playerRef.current
                 
@@ -300,8 +332,8 @@ function AliensGame() {
                     .map(bullet => ({ ...bullet, y: bullet.y - BULLET_SPEED }))
                     .filter(bullet => bullet.y > -bullet.height)
 
-                // Spawn enemies
-                if (frameCountRef.current % ENEMY_SPAWN_RATE === 0) {
+                // Spawn enemies (using level-based spawn rate)
+                if (frameCountRef.current % Math.floor(currentEnemySpawnRate) === 0) {
                     enemiesRef.current.push({
                         x: Math.random() * (CANVAS_WIDTH - 40) + 20,
                         y: -30,
@@ -311,9 +343,9 @@ function AliensGame() {
                     })
                 }
 
-                // Update enemies
+                // Update enemies (using level-based speed)
                 enemiesRef.current = enemiesRef.current
-                    .map(enemy => ({ ...enemy, y: enemy.y + ENEMY_SPEED }))
+                    .map(enemy => ({ ...enemy, y: enemy.y + currentEnemySpeed }))
                     .filter(enemy => {
                         if (enemy.y > CANVAS_HEIGHT) return false
                         
@@ -400,6 +432,46 @@ function AliensGame() {
                 ctx.restore()
             }
 
+            // Draw level announcement overlay with fade-out
+            if (levelAnnouncementStartTimeRef.current && gameStateRef.current.gameState === 'playing') {
+                const announcementAge = (Date.now() - levelAnnouncementStartTimeRef.current) / 1000 // seconds
+                const fadeDuration = 0.5 // fade out over 0.5 seconds
+                const showDuration = 1.5 // show fully for 1.5 seconds
+                const totalDuration = showDuration + fadeDuration // 2 seconds total
+                
+                if (announcementAge < totalDuration) {
+                    // Calculate opacity: 1.0 for first 1.5s, then fade to 0 over 0.5s
+                    let opacity = 1.0
+                    if (announcementAge > showDuration) {
+                        opacity = 1.0 - ((announcementAge - showDuration) / fadeDuration)
+                    }
+                    
+                    ctx.fillStyle = `rgba(0, 0, 0, ${0.8 * opacity})`
+                    ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
+                    
+                    ctx.fillStyle = `rgba(0, 255, 255, ${opacity})`
+                    ctx.textAlign = 'center'
+                    if (isMobile) {
+                        const scaleX = canvas.width / CANVAS_WIDTH
+                        const scaleY = canvas.height / CANVAS_HEIGHT
+                        const fontScale = scaleX
+                        ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        ctx.font = `${24 * fontScale}px "Courier New", monospace`
+                        ctx.fillText('BEGIN!', canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                    } else {
+                        ctx.font = 'bold 48px "Courier New", monospace'
+                        ctx.fillText(`LEVEL ${level}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40)
+                        ctx.font = '24px "Courier New", monospace'
+                        ctx.fillText('BEGIN!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40)
+                    }
+                    ctx.textAlign = 'left'
+                } else {
+                    // Clear the ref after fade completes
+                    levelAnnouncementStartTimeRef.current = null
+                }
+            }
+
             // Draw UI in actual canvas coordinates
             ctx.fillStyle = '#00FFFF'
             if (isMobile) {
@@ -410,12 +482,15 @@ function AliensGame() {
                 const x = 10
                 const y1 = fontSize + 5
                 const y2 = fontSize * 2 + 10
+                const y3 = fontSize * 3 + 15
                 ctx.fillText(`Score: ${gameStateRef.current.score}`, x, y1)
                 ctx.fillText(`High Score: ${highScore}`, x, y2)
+                ctx.fillText(`Level: ${level}`, x, y3)
             } else {
                 ctx.font = '20px "Courier New", monospace'
                 ctx.fillText(`Score: ${gameStateRef.current.score}`, 20, 30)
                 ctx.fillText(`High Score: ${highScore}`, 20, 60)
+                ctx.fillText(`Level: ${level}`, 20, 90)
             }
 
             if (gameStateRef.current.gameState === 'menu') {
@@ -492,7 +567,7 @@ function AliensGame() {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile])
+    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate])
 
     if (isMobile) {
         // Mobile: Full screen canvas
