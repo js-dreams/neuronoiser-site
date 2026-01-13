@@ -14,6 +14,17 @@ exports[`Footer > matches snapshot 1`] = `
       class="text-gray-600 text-xs mt-1"
     >
       <a
+        class="hover:text-neon-cyan transition duration-200 font-mono"
+        data-discover="true"
+        href="/aliens"
+      >
+        🎮 Play Aliens
+      </a>
+    </p>
+    <p
+      class="text-gray-600 text-xs mt-2"
+    >
+      <a
         class="hover:text-neon-cyan transition duration-200"
         href="mailto:danny@neuronoiser.com"
       >
