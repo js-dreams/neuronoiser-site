@@ -12,6 +12,73 @@ const LEVEL_DURATION_FRAMES = 3600 // 60 seconds at 60fps
 const LIFE_POWERUP_SPEED = 2
 const LIFE_POWERUP_SIZE = 25
 
+// Sound system - 80's computer style sounds
+let audioContext = null
+
+const getAudioContext = () => {
+    if (!audioContext) {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)()
+        } catch (e) {
+            return null
+        }
+    }
+    // Resume context if it's suspended (required after user interaction)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {})
+    }
+    return audioContext
+}
+
+const createSound = (frequency, duration, type = 'square', volume = 0.1) => {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    
+    try {
+        const oscillator = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+        
+        oscillator.connect(gainNode)
+        gainNode.connect(ctx.destination)
+        
+        oscillator.type = type
+        oscillator.frequency.value = frequency
+        gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration)
+        
+        oscillator.start(ctx.currentTime)
+        oscillator.stop(ctx.currentTime + duration)
+    } catch (e) {
+        // Silently fail if audio context is not available
+    }
+}
+
+const createShootSound = () => {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    
+    try {
+        const oscillator = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+        
+        oscillator.connect(gainNode)
+        gainNode.connect(ctx.destination)
+        
+        oscillator.type = 'sawtooth'
+        // Quick frequency sweep from high to low (laser/gunshot effect)
+        oscillator.frequency.setValueAtTime(1200, ctx.currentTime)
+        oscillator.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08)
+        
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
+        
+        oscillator.start(ctx.currentTime)
+        oscillator.stop(ctx.currentTime + 0.08)
+    } catch (e) {
+        // Silently fail if audio context is not available
+    }
+}
+
 function AliensGame() {
     const canvasRef = useRef(null)
     const animationFrameRef = useRef(null)
@@ -23,8 +90,10 @@ function AliensGame() {
     const [isMobile, setIsMobile] = useState(false)
     const [level, setLevel] = useState(1)
     const [lives, setLives] = useState(1)
+    const [soundEnabled, setSoundEnabled] = useState(true)
     
     const gameStateRef = useRef({ gameState, score, level, lives })
+    const soundEnabledRef = useRef(soundEnabled)
     const playerRef = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 })
     const bulletsRef = useRef([])
     const enemiesRef = useRef([])
@@ -80,7 +149,12 @@ function AliensGame() {
             setHighScore(gameStateRef.current.score)
             localStorage.setItem('aliensHighScore', gameStateRef.current.score.toString())
         }
-    }, [highScore])
+        // Game over sound
+        if (soundEnabled) {
+            createSound(150, 0.2, 'sawtooth', 0.2)
+            setTimeout(() => createSound(100, 0.3, 'sawtooth', 0.2), 200)
+        }
+    }, [highScore, soundEnabled])
 
     // Keyboard handlers
     useEffect(() => {
@@ -207,7 +281,8 @@ function AliensGame() {
     // Update game state ref
     useEffect(() => {
         gameStateRef.current = { gameState, score, level, lives }
-    }, [gameState, score, level, lives])
+        soundEnabledRef.current = soundEnabled
+    }, [gameState, score, level, lives, soundEnabled])
 
     // Track game entry with analytics
     useEffect(() => {
@@ -228,6 +303,11 @@ function AliensGame() {
             })
         }
         navigate('/')
+    }
+
+    // Toggle sound
+    const toggleSound = () => {
+        setSoundEnabled(prev => !prev)
     }
 
     // Game loop
@@ -285,6 +365,12 @@ function AliensGame() {
                         levelAnnouncementStartTimeRef.current = Date.now()
                         // Set next powerup spawn at a random time within the new level
                         nextPowerupSpawnFrameRef.current = frameCountRef.current + Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
+                        // Level up sound
+                        if (soundEnabledRef.current) {
+                            createSound(300, 0.1, 'square', 0.15)
+                            setTimeout(() => createSound(400, 0.1, 'square', 0.15), 100)
+                            setTimeout(() => createSound(500, 0.15, 'square', 0.15), 200)
+                        }
                     }
                 }
 
@@ -336,6 +422,8 @@ function AliensGame() {
                             width: 4,
                             height: 12
                         })
+                        // Shoot sound
+                        if (soundEnabledRef.current) createShootSound()
                     }
                 }
 
@@ -379,6 +467,11 @@ function AliensGame() {
                         )
                         if (distance < powerup.size + 20) {
                             setLives(prev => prev + 1)
+                            // Powerup collect sound
+                            if (soundEnabledRef.current) {
+                                createSound(400, 0.1, 'square', 0.15)
+                                setTimeout(() => createSound(600, 0.1, 'square', 0.15), 50)
+                            }
                             return false
                         }
                         return true
@@ -399,6 +492,8 @@ function AliensGame() {
                         ) {
                             setLives(prev => {
                                 const newLives = prev - 1
+                                // Lose life sound
+                                if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
                                 if (newLives <= 0) {
                                     gameOver()
                                 }
@@ -427,6 +522,8 @@ function AliensGame() {
                     if (hitEnemy !== -1) {
                         enemiesRef.current.splice(hitEnemy, 1)
                         setScore(prev => prev + 100)
+                        // Enemy hit sound
+                        if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
                         return false
                     }
 
@@ -667,6 +764,26 @@ function AliensGame() {
                     ← Back
                 </button>
                 
+                {/* Sound toggle button for mobile */}
+                <button
+                    onClick={toggleSound}
+                    className="absolute top-4 left-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
+                >
+                    {soundEnabled ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                    ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    )}
+                </button>
+                
                 <canvas
                     ref={canvasRef}
                     width={CANVAS_WIDTH}
@@ -704,6 +821,26 @@ function AliensGame() {
                     className="text-neon-cyan font-mono hover:text-white transition-colors text-lg"
                 >
                     ← Back to Home
+                </button>
+                
+                {/* Sound toggle button for desktop */}
+                <button
+                    onClick={toggleSound}
+                    className="text-neon-cyan hover:text-white transition-colors p-2"
+                    aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
+                >
+                    {soundEnabled ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                    ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    )}
                 </button>
             </div>
             
