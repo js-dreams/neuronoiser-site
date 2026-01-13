@@ -504,11 +504,7 @@ function AliensGame() {
                     ctx.fillText('ALIEN INVADERS', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80) * scaleY)
                     
                     ctx.font = `${24 * fontScale}px "Courier New", monospace`
-                    ctx.fillText('PRESS SPACE TO START', canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
-                    
-                    ctx.font = `${16 * fontScale}px "Courier New", monospace`
-                    ctx.fillText('Arrow Keys / WASD: Move', canvas.width / 2, (CANVAS_HEIGHT / 2 + 80) * scaleY)
-                    ctx.fillText('Space: Shoot', canvas.width / 2, (CANVAS_HEIGHT / 2 + 110) * scaleY)
+                    ctx.fillText('TOUCH TO START', canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
                     
                     ctx.textAlign = 'left'
                 } else {
@@ -540,7 +536,7 @@ function AliensGame() {
                     ctx.fillStyle = '#00FFFF'
                     ctx.font = `${24 * fontScale}px "Courier New", monospace`
                     ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
-                    ctx.fillText('PRESS SPACE TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                    ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
                     
                     ctx.textAlign = 'left'
                 } else {
@@ -598,7 +594,11 @@ function AliensGame() {
                 />
                 
                 {/* Mobile instructions */}
-                <div className="absolute bottom-4 left-0 right-0 z-10 text-center text-gray-500 text-xs font-mono bg-black/70 backdrop-blur-sm py-2">
+                <div 
+                    className={`absolute bottom-4 left-0 right-0 z-10 text-center text-gray-500 text-xs font-mono bg-black/70 backdrop-blur-sm py-2 transition-opacity duration-500 ${
+                        gameState === 'playing' || gameState === 'gameover' ? 'opacity-0' : 'opacity-100'
+                    }`}
+                >
                     <p>Touch and drag to move • Touch to shoot</p>
                 </div>
             </div>
