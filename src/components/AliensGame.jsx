@@ -69,7 +69,7 @@ const createShootSound = () => {
         oscillator.frequency.setValueAtTime(1200, ctx.currentTime)
         oscillator.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08)
         
-        gainNode.gain.setValueAtTime(0.2, ctx.currentTime)
+        gainNode.gain.setValueAtTime(0.040, ctx.currentTime)
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
         
         oscillator.start(ctx.currentTime)
