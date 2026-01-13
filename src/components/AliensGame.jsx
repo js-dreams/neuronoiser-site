@@ -898,7 +898,7 @@ function AliensGame() {
                 {/* Sound toggle button for mobile */}
                 <button
                     onClick={toggleSound}
-                    className="absolute top-4 left-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-14 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
                 >
                     {soundEnabled ? (
