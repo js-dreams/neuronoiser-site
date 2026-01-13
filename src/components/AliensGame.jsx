@@ -450,6 +450,14 @@ function AliensGame() {
         soundEnabledRef.current = soundEnabled
     }, [gameState, score, level, lives, soundEnabled])
 
+    // Update high score during gameplay when current score exceeds it
+    useEffect(() => {
+        if (gameState === 'playing' && score > highScore) {
+            setHighScore(score)
+            localStorage.setItem('aliensHighScore', score.toString())
+        }
+    }, [score, highScore, gameState])
+
     // Track game entry with analytics
     useEffect(() => {
         if (window.gtag) {
