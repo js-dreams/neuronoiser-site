@@ -198,6 +198,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 frameCount: frameCountRef.current,
                 levelStartTime: levelStartTimeRef.current,
                 nextPowerupSpawnFrame: nextPowerupSpawnFrameRef.current,
+                hasCelebratedThisGame: hasCelebratedThisGameRef.current,
+                previousHighScore: previousHighScoreRef.current,
                 savedAt: Date.now()
             }
             onSaveGameState(savedState)
@@ -223,6 +225,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 const pauseDuration = Date.now() - savedGameState.savedAt
                 levelStartTimeRef.current = savedGameState.levelStartTime + pauseDuration
                 nextPowerupSpawnFrameRef.current = savedGameState.nextPowerupSpawnFrame
+                
+                // Restore celebration flags to prevent duplicate celebrations
+                if (savedGameState.hasCelebratedThisGame !== undefined) {
+                    hasCelebratedThisGameRef.current = savedGameState.hasCelebratedThisGame
+                }
+                if (savedGameState.previousHighScore !== undefined) {
+                    previousHighScoreRef.current = savedGameState.previousHighScore
+                }
                 
                 // Clear saved state from parent
                 onClearGameState()
@@ -738,7 +748,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
-            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !isCelebrating) {
+            if (gameStateRef.current.gameState === 'playing' && countdown === 0) {
                 frameCountRef.current++
 
                 // Check for new high score (only once per game, and only if there was a previous high score)
@@ -2177,9 +2187,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.restore()
             }
 
-            // Draw celebration overlay (HIGH SCORE!)
+            // Draw celebration overlay (HIGH SCORE!) - dimmed background so game remains visible
             if (isCelebrating) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
                 ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
                 
                 ctx.fillStyle = '#FFFF00'
