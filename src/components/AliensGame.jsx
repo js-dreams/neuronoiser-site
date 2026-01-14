@@ -141,6 +141,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const clockExtenderDisabledForScoreMultiplierRef = useRef(false)
     const clockExtenderDisabledForMagicDefenceRef = useRef(false)
     const clockExtenderDisabledForSuperWeaponRef = useRef(false)
+    const bonusTextsRef = useRef([]) // Array of {x, y, text, startTime}
 
     // Refs for help dialog icon canvases
     const regularEnemyIconRef = useRef(null)
@@ -324,6 +325,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         superWeaponPowerupsRef.current = []
         clockExtenderPowerupsRef.current = []
         homingMissilesRef.current = []
+        bonusTextsRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
@@ -1613,6 +1615,22 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Check if any powerup is in the spawn window (between 5 and 1.5 seconds before expiration)
                 const now = Date.now()
                 const clockExtenderSpawnChance = 0.02 // 2% chance per frame when in window
+
+                // Update bonus texts (fade out and move up, remove after 1.5 seconds)
+                const BONUS_TEXT_DURATION = 1500 // 1.5 seconds
+                bonusTextsRef.current = bonusTextsRef.current
+                    .filter(bonus => {
+                        const age = now - bonus.startTime
+                        return age < BONUS_TEXT_DURATION
+                    })
+                    .map(bonus => {
+                        const age = now - bonus.startTime
+                        return {
+                            ...bonus,
+                            y: bonus.y - 1, // Move up slowly
+                            opacity: 1 - (age / BONUS_TEXT_DURATION) // Fade out
+                        }
+                    })
                 
                 // Check score multiplier
                 if (scoreMultiplierEndTime && !clockExtenderSpawnedForScoreMultiplierRef.current && !clockExtenderDisabledForScoreMultiplierRef.current) {
@@ -1771,13 +1789,33 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             Math.pow(powerup.y - player.y, 2)
                         )
                         if (distance < powerup.size + 20) {
+                            // Check if already active (bonus condition)
+                            const isAlreadyActive = scoreMultiplierEndTime !== null
+                            if (isAlreadyActive) {
+                                // Bonus: 1000 normally, 3000 with 3X multiplier
+                                const bonusPoints = scoreMultiplier === 3 ? 3000 : 1000
+                                setScore(prev => prev + bonusPoints)
+                                // Special happy sound
+                                if (soundEnabledRef.current) {
+                                    createSound(800, 0.15, 'square', 0.2)
+                                    setTimeout(() => createSound(1000, 0.15, 'square', 0.2), 100)
+                                    setTimeout(() => createSound(1200, 0.2, 'square', 0.2), 200)
+                                }
+                                // Add bonus text
+                                bonusTextsRef.current.push({
+                                    x: powerup.x,
+                                    y: powerup.y,
+                                    text: `+${bonusPoints}`,
+                                    startTime: Date.now()
+                                })
+                            }
                             // Activate 3X score multiplier for 20 seconds
                             setScoreMultiplier(3)
                             setScoreMultiplierEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForScoreMultiplierRef.current = Math.random() < 0.5
-                            // Powerup collect sound
-                            if (soundEnabledRef.current) {
+                            // Powerup collect sound (if not bonus)
+                            if (!isAlreadyActive && soundEnabledRef.current) {
                                 createSound(500, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(600, 0.1, 'square', 0.15), 50)
                                 setTimeout(() => createSound(700, 0.1, 'square', 0.15), 100)
@@ -1799,13 +1837,33 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             Math.pow(powerup.y - player.y, 2)
                         )
                         if (distance < powerup.size + 20) {
+                            // Check if already active (bonus condition)
+                            const isAlreadyActive = magicDefenceActive
+                            if (isAlreadyActive) {
+                                // Bonus: 1000 normally, 3000 with 3X multiplier
+                                const bonusPoints = scoreMultiplier === 3 ? 3000 : 1000
+                                setScore(prev => prev + bonusPoints)
+                                // Special happy sound
+                                if (soundEnabledRef.current) {
+                                    createSound(800, 0.15, 'square', 0.2)
+                                    setTimeout(() => createSound(1000, 0.15, 'square', 0.2), 100)
+                                    setTimeout(() => createSound(1200, 0.2, 'square', 0.2), 200)
+                                }
+                                // Add bonus text
+                                bonusTextsRef.current.push({
+                                    x: powerup.x,
+                                    y: powerup.y,
+                                    text: `+${bonusPoints}`,
+                                    startTime: Date.now()
+                                })
+                            }
                             // Activate magic defence for 20 seconds
                             setMagicDefenceActive(true)
                             setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForMagicDefenceRef.current = Math.random() < 0.5
-                            // Powerup collect sound
-                            if (soundEnabledRef.current) {
+                            // Powerup collect sound (if not bonus)
+                            if (!isAlreadyActive && soundEnabledRef.current) {
                                 createSound(600, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(700, 0.1, 'square', 0.15), 50)
                                 setTimeout(() => createSound(800, 0.1, 'square', 0.15), 100)
@@ -1827,13 +1885,33 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             Math.pow(powerup.y - player.y, 2)
                         )
                         if (distance < powerup.size + 20) {
+                            // Check if already active (bonus condition)
+                            const isAlreadyActive = superWeaponActive
+                            if (isAlreadyActive) {
+                                // Bonus: 1000 normally, 3000 with 3X multiplier
+                                const bonusPoints = scoreMultiplier === 3 ? 3000 : 1000
+                                setScore(prev => prev + bonusPoints)
+                                // Special happy sound
+                                if (soundEnabledRef.current) {
+                                    createSound(800, 0.15, 'square', 0.2)
+                                    setTimeout(() => createSound(1000, 0.15, 'square', 0.2), 100)
+                                    setTimeout(() => createSound(1200, 0.2, 'square', 0.2), 200)
+                                }
+                                // Add bonus text
+                                bonusTextsRef.current.push({
+                                    x: powerup.x,
+                                    y: powerup.y,
+                                    text: `+${bonusPoints}`,
+                                    startTime: Date.now()
+                                })
+                            }
                             // Activate super weapon for 20 seconds
                             setSuperWeaponActive(true)
                             setSuperWeaponEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForSuperWeaponRef.current = Math.random() < 0.5
-                            // Powerup collect sound
-                            if (soundEnabledRef.current) {
+                            // Powerup collect sound (if not bonus)
+                            if (!isAlreadyActive && soundEnabledRef.current) {
                                 createSound(700, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(800, 0.1, 'square', 0.15), 50)
                                 setTimeout(() => createSound(900, 0.1, 'square', 0.15), 100)
@@ -2657,6 +2735,18 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.arc(centerX - clockRadius * 0.75, centerY, dotSize, 0, Math.PI * 2)
                     ctx.fill()
                     
+                    ctx.restore()
+                })
+
+                // Draw bonus texts
+                bonusTextsRef.current.forEach(bonus => {
+                    ctx.save()
+                    ctx.globalAlpha = bonus.opacity
+                    ctx.fillStyle = '#00FF00' // Green
+                    ctx.font = 'bold 14px "Courier New", monospace'
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    ctx.fillText(`Bonus ${bonus.text}`, bonus.x, bonus.y)
                     ctx.restore()
                 })
             }
