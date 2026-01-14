@@ -108,6 +108,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     
     const gameStateRef = useRef({ gameState, score, level, lives })
     const soundEnabledRef = useRef(soundEnabled)
+    const showHelpDialogRef = useRef(false)
     const playerRef = useRef({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 })
     const bulletsRef = useRef([])
     const enemiesRef = useRef([])
@@ -538,7 +539,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     useEffect(() => {
         gameStateRef.current = { gameState, score, level, lives }
         soundEnabledRef.current = soundEnabled
-    }, [gameState, score, level, lives, soundEnabled])
+        showHelpDialogRef.current = showHelpDialog
+    }, [gameState, score, level, lives, soundEnabled, showHelpDialog])
 
     // Update high score during gameplay when current score exceeds it
     useEffect(() => {
@@ -749,7 +751,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
-            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !showHelpDialog) {
+            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !showHelpDialogRef.current) {
                 frameCountRef.current++
 
                 // Check for new high score (only once per game, and only if there was a previous high score)
@@ -2399,11 +2401,24 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 >
                     ← Back
                 </button>
+
+                {/* Help button for mobile */}
+                <button
+                    onClick={() => setShowHelpDialog(true)}
+                    className="absolute top-14 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    aria-label="Show help"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
                 
                 {/* Sound toggle button for mobile */}
                 <button
                     onClick={toggleSound}
-                    className="absolute top-14 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-24 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
                 >
                     {soundEnabled ? (
@@ -2423,26 +2438,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Music toggle button for mobile */}
                 <button
                     onClick={handleMusicToggle}
-                    className="absolute top-24 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[136px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label={musicIsPlaying ? 'Pause music' : 'Play music'}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 18V5l12-2v13"></path>
                         <circle cx="6" cy="18" r="3"></circle>
                         <circle cx="18" cy="16" r="3"></circle>
-                    </svg>
-                </button>
-
-                {/* Help button for mobile */}
-                <button
-                    onClick={() => setShowHelpDialog(true)}
-                    className="absolute top-[136px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
-                    aria-label="Show help"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
                 </button>
                 
