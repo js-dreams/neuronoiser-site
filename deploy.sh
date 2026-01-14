@@ -48,10 +48,11 @@ cp -r "$TEMP_DIST"/* . 2>/dev/null || true
 rm -rf "$TEMP_DIST"
 
 # Explicitly remove any unwanted directories/files if they exist
+rm -rf node_modules src dist .vite package.json package-lock.json vite.config.js tailwind.config.js postcss.config.js deploy.sh .gitignore 2>/dev/null || true
 git rm -rf node_modules src dist .vite package.json package-lock.json vite.config.js tailwind.config.js postcss.config.js deploy.sh .gitignore 2>/dev/null || true
 
-# Add all files (they should all be from dist, so safe to add everything)
-git add -f .
+# Add only the built files (explicitly exclude node_modules, src, etc)
+git add -f CNAME index.html assets/ audio/ logos/ cassette.jpeg music.json
 
 # Commit
 echo "💾 Committing changes..."
