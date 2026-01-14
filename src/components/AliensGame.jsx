@@ -92,6 +92,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [score, setScore] = useState(0)
     const [highScore, setHighScore] = useState(0)
     const [isMobile, setIsMobile] = useState(false)
+    const [isLandscapeMobile, setIsLandscapeMobile] = useState(false)
     const [level, setLevel] = useState(1)
     const [lives, setLives] = useState(1)
     const [soundEnabled, setSoundEnabled] = useState(true)
@@ -565,23 +566,48 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     // Detect mobile/desktop and set canvas size on mobile
     useEffect(() => {
         const checkMobile = () => {
-            const mobile = window.innerWidth < 768
-            setIsMobile(mobile)
+            // Detect if device has touch capability (mobile)
+            const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+            // Detect if width suggests mobile (even in landscape)
+            const widthBasedMobile = window.innerWidth < 768
+            // Check if in landscape orientation
+            const isLandscape = window.innerWidth > window.innerHeight
             
-            // On mobile, set canvas resolution to match viewport
-            if (mobile && canvasRef.current) {
-                const canvas = canvasRef.current
-                canvas.width = window.innerWidth
-                canvas.height = window.innerHeight
-            } else if (!mobile && canvasRef.current) {
-                // Reset to logical size on desktop
-                canvasRef.current.width = CANVAS_WIDTH
-                canvasRef.current.height = CANVAS_HEIGHT
+            // If it has touch AND width is >= 768 AND landscape, it's likely mobile in landscape
+            const mobileInLandscape = hasTouch && !widthBasedMobile && isLandscape
+            
+            if (mobileInLandscape) {
+                setIsLandscapeMobile(true)
+                setIsMobile(false)
+                // Set desktop canvas size for now
+                if (canvasRef.current) {
+                    canvasRef.current.width = CANVAS_WIDTH
+                    canvasRef.current.height = CANVAS_HEIGHT
+                }
+            } else {
+                setIsLandscapeMobile(false)
+                const mobile = widthBasedMobile || (hasTouch && window.innerWidth < 1024)
+                setIsMobile(mobile)
+                
+                // On mobile, set canvas resolution to match viewport
+                if (mobile && canvasRef.current) {
+                    const canvas = canvasRef.current
+                    canvas.width = window.innerWidth
+                    canvas.height = window.innerHeight
+                } else if (!mobile && canvasRef.current) {
+                    // Reset to logical size on desktop
+                    canvasRef.current.width = CANVAS_WIDTH
+                    canvasRef.current.height = CANVAS_HEIGHT
+                }
             }
         }
         checkMobile()
         window.addEventListener('resize', checkMobile)
-        return () => window.removeEventListener('resize', checkMobile)
+        window.addEventListener('orientationchange', checkMobile)
+        return () => {
+            window.removeEventListener('resize', checkMobile)
+            window.removeEventListener('orientationchange', checkMobile)
+        }
     }, [])
 
     // Update game state ref
@@ -2500,6 +2526,27 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             }
         }
     }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
+
+    // Show landscape orientation warning for mobile devices
+    if (isLandscapeMobile) {
+        return (
+            <div className="fixed inset-0 w-screen h-screen bg-black flex items-center justify-center p-4">
+                <div className="text-center max-w-md">
+                    <div className="text-neon-cyan text-4xl mb-4">⚠️</div>
+                    <h2 className="text-2xl font-mono font-bold text-neon-cyan mb-4">Landscape Mode Not Supported</h2>
+                    <p className="text-white font-mono mb-4">
+                        This game is designed for portrait orientation on mobile devices. Please rotate your device to portrait mode to play.
+                    </p>
+                    <button
+                        onClick={handleBackToHome}
+                        className="text-neon-cyan font-mono hover:text-white transition-colors text-lg bg-black/70 px-4 py-2 rounded border border-neon-cyan/50"
+                    >
+                        ← Back to Home
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     if (isMobile) {
         // Mobile: Full screen canvas
