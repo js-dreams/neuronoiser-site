@@ -114,6 +114,7 @@ function AliensGame() {
     const scoreBonusPowerupsRef = useRef([])
     const magicDefencePowerupsRef = useRef([])
     const superWeaponPowerupsRef = useRef([])
+    const clockExtenderPowerupsRef = useRef([])
     const homingMissilesRef = useRef([])
     const keysRef = useRef({})
     const starsRef = useRef([])
@@ -128,6 +129,9 @@ function AliensGame() {
     const fireworksRef = useRef([])
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
+    const clockExtenderSpawnedForScoreMultiplierRef = useRef(false)
+    const clockExtenderSpawnedForMagicDefenceRef = useRef(false)
+    const clockExtenderSpawnedForSuperWeaponRef = useRef(false)
 
     // Initialize stars
     useEffect(() => {
@@ -262,6 +266,9 @@ function AliensGame() {
         setCelebrationStartTime(null)
         fireworksRef.current = []
         hasCelebratedThisGameRef.current = false
+        clockExtenderSpawnedForScoreMultiplierRef.current = false
+        clockExtenderSpawnedForMagicDefenceRef.current = false
+        clockExtenderSpawnedForSuperWeaponRef.current = false
         setScoreMultiplier(1)
         setScoreMultiplierEndTime(null)
         setMagicDefenceActive(false)
@@ -280,6 +287,7 @@ function AliensGame() {
         scoreBonusPowerupsRef.current = []
         magicDefencePowerupsRef.current = []
         superWeaponPowerupsRef.current = []
+        clockExtenderPowerupsRef.current = []
         homingMissilesRef.current = []
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
@@ -989,6 +997,90 @@ function AliensGame() {
                     nextSuperWeaponSpawnFrameRef.current = null
                 }
 
+                // Spawn clock extender powerups (randomly between 5 and 1.5 seconds before expiration)
+                const CLOCK_EXTENDER_SPAWN_WINDOW_START = 5000 // 5 seconds before expiration
+                const CLOCK_EXTENDER_SPAWN_WINDOW_END = 1500 // 1.5 seconds before expiration
+                const EXTENSION_DURATION = 30000 // 30 seconds in milliseconds
+                const clockExtenderSpawned = clockExtenderPowerupsRef.current.length > 0
+                
+                // Check if any powerup is in the spawn window (between 5 and 1.5 seconds before expiration)
+                const now = Date.now()
+                const clockExtenderSpawnChance = 0.02 // 2% chance per frame when in window
+                
+                // Check score multiplier
+                if (scoreMultiplierEndTime && !clockExtenderSpawnedForScoreMultiplierRef.current) {
+                    const timeRemaining = scoreMultiplierEndTime - now
+                    if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
+                        if (Math.random() < clockExtenderSpawnChance) {
+                            clockExtenderSpawnedForScoreMultiplierRef.current = true
+                            const PLAYER_AVOID_ZONE = 80
+                            let spawnX
+                            let attempts = 0
+                            do {
+                                spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                                attempts++
+                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                            
+                            clockExtenderPowerupsRef.current.push({
+                                x: spawnX,
+                                y: -LIFE_POWERUP_SIZE,
+                                size: LIFE_POWERUP_SIZE
+                            })
+                        }
+                    }
+                }
+                
+                // Check magic defence
+                if (magicDefenceEndTime && !clockExtenderSpawnedForMagicDefenceRef.current) {
+                    const timeRemaining = magicDefenceEndTime - now
+                    if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
+                        if (Math.random() < clockExtenderSpawnChance) {
+                            clockExtenderSpawnedForMagicDefenceRef.current = true
+                            const PLAYER_AVOID_ZONE = 80
+                            let spawnX
+                            let attempts = 0
+                            do {
+                                spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                                attempts++
+                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                            
+                            clockExtenderPowerupsRef.current.push({
+                                x: spawnX,
+                                y: -LIFE_POWERUP_SIZE,
+                                size: LIFE_POWERUP_SIZE
+                            })
+                        }
+                    }
+                }
+                
+                // Check super weapon
+                if (superWeaponEndTime && !clockExtenderSpawnedForSuperWeaponRef.current) {
+                    const timeRemaining = superWeaponEndTime - now
+                    if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
+                        if (Math.random() < clockExtenderSpawnChance) {
+                            clockExtenderSpawnedForSuperWeaponRef.current = true
+                            const PLAYER_AVOID_ZONE = 80
+                            let spawnX
+                            let attempts = 0
+                            do {
+                                spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                                attempts++
+                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                            
+                            clockExtenderPowerupsRef.current.push({
+                                x: spawnX,
+                                y: -LIFE_POWERUP_SIZE,
+                                size: LIFE_POWERUP_SIZE
+                            })
+                        }
+                    }
+                }
+                
+                // Reset spawn flags when powerups expire
+                if (!scoreMultiplierEndTime) clockExtenderSpawnedForScoreMultiplierRef.current = false
+                if (!magicDefenceEndTime) clockExtenderSpawnedForMagicDefenceRef.current = false
+                if (!superWeaponEndTime) clockExtenderSpawnedForSuperWeaponRef.current = false
+
                 // Update life powerups
                 lifePowerupsRef.current = lifePowerupsRef.current
                     .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
@@ -1084,6 +1176,46 @@ function AliensGame() {
                                 createSound(700, 0.1, 'square', 0.15)
                                 setTimeout(() => createSound(800, 0.1, 'square', 0.15), 50)
                                 setTimeout(() => createSound(900, 0.1, 'square', 0.15), 100)
+                            }
+                            return false
+                        }
+                        return true
+                    })
+
+                // Update clock extender powerups
+                const CLOCK_EXTENDER_SPEED = LIFE_POWERUP_SPEED * 2.2 // 2.2x faster than other powerups
+                clockExtenderPowerupsRef.current = clockExtenderPowerupsRef.current
+                    .map(powerup => ({ ...powerup, y: powerup.y + CLOCK_EXTENDER_SPEED }))
+                    .filter(powerup => {
+                        if (powerup.y > CANVAS_HEIGHT) return false
+                        
+                        // Collision with player (collect powerup)
+                        const distance = Math.sqrt(
+                            Math.pow(powerup.x - player.x, 2) + 
+                            Math.pow(powerup.y - player.y, 2)
+                        )
+                        if (distance < powerup.size + 20) {
+                            // Extend all active powerup timers by 30 seconds
+                            const EXTENSION_DURATION = 30000
+                            
+                            if (scoreMultiplierEndTime) {
+                                setScoreMultiplierEndTime(scoreMultiplierEndTime + EXTENSION_DURATION)
+                                clockExtenderSpawnedForScoreMultiplierRef.current = false // Reset flag to allow another spawn
+                            }
+                            if (magicDefenceEndTime) {
+                                setMagicDefenceEndTime(magicDefenceEndTime + EXTENSION_DURATION)
+                                clockExtenderSpawnedForMagicDefenceRef.current = false // Reset flag to allow another spawn
+                            }
+                            if (superWeaponEndTime) {
+                                setSuperWeaponEndTime(superWeaponEndTime + EXTENSION_DURATION)
+                                clockExtenderSpawnedForSuperWeaponRef.current = false // Reset flag to allow another spawn
+                            }
+                            
+                            // Powerup collect sound
+                            if (soundEnabledRef.current) {
+                                createSound(800, 0.1, 'square', 0.15)
+                                setTimeout(() => createSound(900, 0.1, 'square', 0.15), 50)
+                                setTimeout(() => createSound(1000, 0.1, 'square', 0.15), 100)
                             }
                             return false
                         }
@@ -1343,6 +1475,20 @@ function AliensGame() {
 
                     if (hitSuperWeaponPowerup !== -1) {
                         superWeaponPowerupsRef.current.splice(hitSuperWeaponPowerup, 1)
+                        return false
+                    }
+
+                    // Check collision with clock extender powerups (destroy powerup if shot)
+                    const hitClockExtenderPowerup = clockExtenderPowerupsRef.current.findIndex(powerup => {
+                        const distance = Math.sqrt(
+                            Math.pow(bullet.x - powerup.x, 2) + 
+                            Math.pow(bullet.y - powerup.y, 2)
+                        )
+                        return distance < powerup.size
+                    })
+
+                    if (hitClockExtenderPowerup !== -1) {
+                        clockExtenderPowerupsRef.current.splice(hitClockExtenderPowerup, 1)
                         return false
                     }
 
@@ -1664,6 +1810,82 @@ function AliensGame() {
                     ctx.beginPath()
                     ctx.arc(centerX, centerY, symbolSize * 0.7, 0, Math.PI * 2)
                     ctx.stroke()
+                    
+                    ctx.restore()
+                })
+
+                // Draw clock extender powerups
+                clockExtenderPowerupsRef.current.forEach(powerup => {
+                    ctx.save()
+                    
+                    // Clock face circle (light gray/white)
+                    const gradient = ctx.createRadialGradient(
+                        powerup.x - powerup.size * 0.3, 
+                        powerup.y - powerup.size * 0.3, 
+                        0,
+                        powerup.x, 
+                        powerup.y, 
+                        powerup.size
+                    )
+                    gradient.addColorStop(0, '#F0F0F0')
+                    gradient.addColorStop(0.5, '#E0E0E0')
+                    gradient.addColorStop(1, '#C0C0C0')
+                    ctx.fillStyle = gradient
+                    ctx.beginPath()
+                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Outer border
+                    ctx.strokeStyle = '#000000'
+                    ctx.lineWidth = 2
+                    ctx.stroke()
+                    
+                    // Clock hands (hour and minute)
+                    ctx.strokeStyle = '#000000'
+                    ctx.lineWidth = 2
+                    ctx.lineCap = 'round'
+                    
+                    const centerX = powerup.x
+                    const centerY = powerup.y
+                    const clockRadius = powerup.size * 0.8
+                    
+                    // Hour hand (pointing to 3 o'clock)
+                    ctx.beginPath()
+                    ctx.moveTo(centerX, centerY)
+                    ctx.lineTo(centerX + clockRadius * 0.4, centerY)
+                    ctx.stroke()
+                    
+                    // Minute hand (pointing to 12 o'clock)
+                    ctx.beginPath()
+                    ctx.moveTo(centerX, centerY)
+                    ctx.lineTo(centerX, centerY - clockRadius * 0.6)
+                    ctx.stroke()
+                    
+                    // Center dot
+                    ctx.fillStyle = '#000000'
+                    ctx.beginPath()
+                    ctx.arc(centerX, centerY, 2, 0, Math.PI * 2)
+                    ctx.fill()
+                    
+                    // Clock numbers (12, 3, 6, 9 positions as dots)
+                    ctx.fillStyle = '#000000'
+                    const dotSize = 2
+                    // 12 o'clock
+                    ctx.beginPath()
+                    ctx.arc(centerX, centerY - clockRadius * 0.75, dotSize, 0, Math.PI * 2)
+                    ctx.fill()
+                    // 3 o'clock
+                    ctx.beginPath()
+                    ctx.arc(centerX + clockRadius * 0.75, centerY, dotSize, 0, Math.PI * 2)
+                    ctx.fill()
+                    // 6 o'clock
+                    ctx.beginPath()
+                    ctx.arc(centerX, centerY + clockRadius * 0.75, dotSize, 0, Math.PI * 2)
+                    ctx.fill()
+                    // 9 o'clock
+                    ctx.beginPath()
+                    ctx.arc(centerX - clockRadius * 0.75, centerY, dotSize, 0, Math.PI * 2)
+                    ctx.fill()
                     
                     ctx.restore()
                 })
