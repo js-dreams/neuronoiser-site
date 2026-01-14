@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AliensGame from '../AliensGame'
 import { MusicPlayerProvider } from '../../contexts/MusicPlayerContext'
@@ -52,6 +52,12 @@ describe('AliensGame', () => {
       configurable: true,
       value: 768
     })
+    // Mock navigator to ensure no touch capability in tests (to avoid landscape detection)
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      writable: true,
+      configurable: true,
+      value: 0
+    })
     // Mock Date.now for consistent timing in tests
     vi.useFakeTimers()
   })
@@ -63,9 +69,13 @@ describe('AliensGame', () => {
 
   describe('Rendering', () => {
     it('renders canvas element with correct dimensions', () => {
-      const { container } = renderAliensGame()
+      renderAliensGame()
 
-      const canvas = container.querySelector('canvas')
+      // Ensure desktop view is rendered (back button presence confirms desktop view)
+      screen.getByText(/Back to Home/i)
+
+      // Try using getByTestId (canvas elements don't have accessible roles)
+      const canvas = screen.getByTestId('game-canvas')
       expect(canvas).toBeInTheDocument()
       expect(canvas).toHaveAttribute('width', '800')
       expect(canvas).toHaveAttribute('height', '600')
@@ -73,6 +83,9 @@ describe('AliensGame', () => {
 
     it('renders game container with border on desktop', () => {
       const { container } = renderAliensGame()
+
+      // Ensure desktop view is rendered (back button presence confirms desktop view)
+      screen.getByText(/Back to Home/i)
 
       const gameContainer = container.querySelector('.border-2.border-neon-cyan')
       expect(gameContainer).toBeInTheDocument()
@@ -129,7 +142,7 @@ describe('AliensGame', () => {
 
       const backButton = screen.getByText(/← Back/i)
       expect(backButton).toBeInTheDocument()
-      expect(backButton).toHaveClass('absolute', 'top-4', 'right-4')
+      expect(backButton).toHaveClass('absolute', 'top-2', 'right-4')
     })
   })
 
