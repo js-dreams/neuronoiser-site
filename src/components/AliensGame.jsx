@@ -533,6 +533,7 @@ function AliensGame() {
     useEffect(() => {
         if (gameState === 'playing' && score > highScore) {
             setHighScore(score)
+            previousHighScoreRef.current = score
             localStorage.setItem('aliensHighScore', score.toString())
         }
     }, [score, highScore, gameState])
