@@ -83,7 +83,7 @@ const createShootSound = () => {
     }
 }
 
-function AliensGame() {
+function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const canvasRef = useRef(null)
     const animationFrameRef = useRef(null)
     const navigate = useNavigate()
@@ -182,7 +182,7 @@ function AliensGame() {
         }
     }, [])
 
-    // Save game state to localStorage
+    // Save game state to parent App component (clears on page refresh, persists during navigation)
     const saveGameState = useCallback(() => {
         if (gameStateRef.current.gameState === 'playing') {
             const savedState = {
@@ -200,45 +200,43 @@ function AliensGame() {
                 nextPowerupSpawnFrame: nextPowerupSpawnFrameRef.current,
                 savedAt: Date.now()
             }
-            localStorage.setItem('aliensGameState', JSON.stringify(savedState))
+            onSaveGameState(savedState)
         }
-    }, [])
+    }, [onSaveGameState])
 
-    // Restore game state from localStorage
+    // Restore game state from parent App component (clears on page refresh, persists during navigation)
     const restoreGameState = useCallback(() => {
-        const saved = localStorage.getItem('aliensGameState')
-        if (saved) {
+        if (savedGameState) {
             try {
-                const savedState = JSON.parse(saved)
-                setGameState(savedState.gameState)
-                setScore(savedState.score)
-                setLevel(savedState.level)
-                setLives(savedState.lives)
-                playerRef.current = savedState.player
-                enemiesRef.current = savedState.enemies
-                bulletsRef.current = savedState.bullets
-                enemyBulletsRef.current = savedState.enemyBullets || []
-                lifePowerupsRef.current = savedState.lifePowerups
-                frameCountRef.current = savedState.frameCount
+                setGameState(savedGameState.gameState)
+                setScore(savedGameState.score)
+                setLevel(savedGameState.level)
+                setLives(savedGameState.lives)
+                playerRef.current = savedGameState.player
+                enemiesRef.current = savedGameState.enemies
+                bulletsRef.current = savedGameState.bullets
+                enemyBulletsRef.current = savedGameState.enemyBullets || []
+                lifePowerupsRef.current = savedGameState.lifePowerups
+                frameCountRef.current = savedGameState.frameCount
                 
                 // Adjust timing for pause duration
-                const pauseDuration = Date.now() - savedState.savedAt
-                levelStartTimeRef.current = savedState.levelStartTime + pauseDuration
-                nextPowerupSpawnFrameRef.current = savedState.nextPowerupSpawnFrame
+                const pauseDuration = Date.now() - savedGameState.savedAt
+                levelStartTimeRef.current = savedGameState.levelStartTime + pauseDuration
+                nextPowerupSpawnFrameRef.current = savedGameState.nextPowerupSpawnFrame
                 
-                // Clear saved state
-                localStorage.removeItem('aliensGameState')
+                // Clear saved state from parent
+                onClearGameState()
                 
                 // Start countdown
                 setCountdown(3)
                 return true
             } catch (e) {
                 console.error('Failed to restore game state:', e)
-                localStorage.removeItem('aliensGameState')
+                onClearGameState()
             }
         }
         return false
-    }, [])
+    }, [savedGameState, onClearGameState])
 
     // Create firework particles
     const createFireworks = useCallback((centerX, centerY) => {
@@ -264,7 +262,7 @@ function AliensGame() {
 
     const startGame = useCallback(() => {
         // Clear any saved game state
-        localStorage.removeItem('aliensGameState')
+        onClearGameState()
         setCountdown(0)
         setIsCelebrating(false)
         setCelebrationStartTime(null)
@@ -303,7 +301,7 @@ function AliensGame() {
         nextSuperWeaponSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
         // Reset previous high score ref to current high score at game start
         previousHighScoreRef.current = highScore
-    }, [highScore])
+    }, [highScore, onClearGameState])
 
     const gameOver = useCallback(() => {
         setGameState('gameover')
@@ -421,7 +419,7 @@ function AliensGame() {
             previousHighScoreRef.current = savedHighScore
         }
         
-        // Try to restore game state
+        // Try to restore game state (will be null if page was refreshed, as React state clears)
         restoreGameState()
     }, [restoreGameState])
 

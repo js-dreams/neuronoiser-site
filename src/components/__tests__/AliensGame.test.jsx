@@ -18,11 +18,21 @@ vi.mock('react-router-dom', async () => {
 global.gtag = vi.fn()
 
 // Helper to render AliensGame with required providers
-const renderAliensGame = () => {
+const renderAliensGame = (props = {}) => {
+  const {
+    savedGameState = null,
+    onSaveGameState = () => {},
+    onClearGameState = () => {}
+  } = props
+  
   return render(
     <MemoryRouter>
       <MusicPlayerProvider>
-        <AliensGame />
+        <AliensGame 
+          savedGameState={savedGameState}
+          onSaveGameState={onSaveGameState}
+          onClearGameState={onClearGameState}
+        />
       </MusicPlayerProvider>
     </MemoryRouter>
   )
