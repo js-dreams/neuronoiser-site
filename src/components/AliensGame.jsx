@@ -690,7 +690,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'Aliens Game (neuronoiser.com)',
+                    title: 'Aliens Game (@neuronoiser.com)',
                     text: 'Check out this retro space shooter game! Play Aliens - an 80s-style space shooter with powerups, 10 levels, and increasing difficulty.',
                     url: window.location.href
                 })
