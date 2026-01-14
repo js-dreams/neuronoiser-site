@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AliensGame from '../AliensGame'
+import { MusicPlayerProvider } from '../../contexts/MusicPlayerContext'
 
 // Mock useNavigate
 const mockNavigate = vi.fn()
@@ -15,6 +16,17 @@ vi.mock('react-router-dom', async () => {
 
 // Mock gtag for analytics
 global.gtag = vi.fn()
+
+// Helper to render AliensGame with required providers
+const renderAliensGame = () => {
+  return render(
+    <MemoryRouter>
+      <MusicPlayerProvider>
+        <AliensGame />
+      </MusicPlayerProvider>
+    </MemoryRouter>
+  )
+}
 
 describe('AliensGame', () => {
   beforeEach(() => {
@@ -41,11 +53,7 @@ describe('AliensGame', () => {
 
   describe('Rendering', () => {
     it('renders canvas element with correct dimensions', () => {
-      const { container } = render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      const { container } = renderAliensGame()
 
       const canvas = container.querySelector('canvas')
       expect(canvas).toBeInTheDocument()
@@ -54,11 +62,7 @@ describe('AliensGame', () => {
     })
 
     it('renders game container with border on desktop', () => {
-      const { container } = render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      const { container } = renderAliensGame()
 
       const gameContainer = container.querySelector('.border-2.border-neon-cyan')
       expect(gameContainer).toBeInTheDocument()
@@ -67,22 +71,14 @@ describe('AliensGame', () => {
 
   describe('Navigation', () => {
     it('renders back button on desktop', () => {
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       const backButton = screen.getByText(/Back to Home/i)
       expect(backButton).toBeInTheDocument()
     })
 
     it('back button navigates to home', () => {
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       const backButton = screen.getByText(/Back to Home/i)
       backButton.click()
@@ -91,11 +87,7 @@ describe('AliensGame', () => {
     })
 
     it('renders back button with correct styling on desktop', () => {
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       const backButton = screen.getByText(/Back to Home/i)
       expect(backButton).toHaveClass('text-neon-cyan', 'font-mono')
@@ -110,11 +102,7 @@ describe('AliensGame', () => {
         value: 375
       })
 
-      const { container } = render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      const { container } = renderAliensGame()
 
       const mobileContainer = container.querySelector('.fixed.inset-0')
       expect(mobileContainer).toBeInTheDocument()
@@ -127,11 +115,7 @@ describe('AliensGame', () => {
         value: 375
       })
 
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       const backButton = screen.getByText(/← Back/i)
       expect(backButton).toBeInTheDocument()
@@ -141,11 +125,7 @@ describe('AliensGame', () => {
 
   describe('Analytics', () => {
     it('tracks game entry with analytics', () => {
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       expect(global.gtag).toHaveBeenCalledWith('event', 'game_entry', {
         game_name: 'Aliens',
@@ -154,11 +134,7 @@ describe('AliensGame', () => {
     })
 
     it('tracks game exit with analytics when back button is clicked', () => {
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       vi.clearAllMocks()
 
@@ -177,11 +153,7 @@ describe('AliensGame', () => {
     it('loads high score from localStorage on mount', () => {
       localStorage.setItem('aliensHighScore', '5000')
       
-      render(
-        <MemoryRouter>
-          <AliensGame />
-        </MemoryRouter>
-      )
+      renderAliensGame()
 
       expect(localStorage.getItem('aliensHighScore')).toBe('5000')
     })

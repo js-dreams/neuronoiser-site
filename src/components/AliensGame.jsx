@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMusicPlayerContext } from '../contexts/MusicPlayerContext'
 
 const CANVAS_WIDTH = 800
 const CANVAS_HEIGHT = 600
@@ -536,7 +537,62 @@ function AliensGame() {
         }
     }, [score, highScore, gameState])
 
-    // Track game entry with analytics
+    // Get music player context
+    const { audioRef: musicAudioRef, isPlaying: musicIsPlaying, hasPlayedRef: musicHasPlayedRef, handlePlayPause } = useMusicPlayerContext()
+
+    // Ref for volume transition interval
+    const volumeTransitionRef = useRef(null)
+
+    // Helper function for gradual volume transition
+    const transitionVolume = useCallback((targetVolume, duration = 2000) => {
+        if (!musicAudioRef.current) return
+
+        const startVolume = musicAudioRef.current.volume
+        const startTime = Date.now()
+
+        // Clear any existing transition
+        if (volumeTransitionRef.current) {
+            clearInterval(volumeTransitionRef.current)
+        }
+
+        // Only transition if there's a change needed
+        if (Math.abs(startVolume - targetVolume) < 0.01) {
+            musicAudioRef.current.volume = targetVolume
+            return
+        }
+
+        // Gradual volume transition
+        volumeTransitionRef.current = setInterval(() => {
+            if (!musicAudioRef.current) {
+                if (volumeTransitionRef.current) {
+                    clearInterval(volumeTransitionRef.current)
+                    volumeTransitionRef.current = null
+                }
+                return
+            }
+
+            const elapsed = Date.now() - startTime
+            const progress = Math.min(elapsed / duration, 1)
+            
+            // Ease in-out cubic for smooth transition
+            const easeProgress = progress < 0.5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+            const currentVolume = startVolume + (targetVolume - startVolume) * easeProgress
+            musicAudioRef.current.volume = currentVolume
+
+            if (progress >= 1) {
+                musicAudioRef.current.volume = targetVolume
+                if (volumeTransitionRef.current) {
+                    clearInterval(volumeTransitionRef.current)
+                    volumeTransitionRef.current = null
+                }
+            }
+        }, 16) // ~60fps updates
+    }, [musicAudioRef])
+
+    // Track game entry with analytics and set initial music volume
     useEffect(() => {
         if (window.gtag) {
             window.gtag('event', 'game_entry', {
@@ -544,7 +600,60 @@ function AliensGame() {
                 action: 'enter_game'
             })
         }
-    }, [])
+
+        // Set initial volume when entering game route
+        // If music is already playing, transition gradually; otherwise set immediately
+        if (musicAudioRef.current) {
+            const initialVolume = soundEnabled ? 0.25 : 1.0
+            if (musicIsPlaying && !musicAudioRef.current.paused) {
+                // Music is playing: transition gradually
+                transitionVolume(initialVolume)
+            } else {
+                // Music is not playing: set immediately (no transition needed)
+                musicAudioRef.current.volume = initialVolume
+            }
+        }
+    }, [musicIsPlaying, soundEnabled, transitionVolume])
+
+    // Wrapper for handlePlayPause that tracks in-game music state
+    const handleMusicToggle = () => {
+        handlePlayPause()
+        // After toggling, update localStorage based on new state
+        // We need to check the actual audio state after a brief delay
+        setTimeout(() => {
+            if (musicAudioRef.current) {
+                const isNowPaused = musicAudioRef.current.paused
+                if (isNowPaused) {
+                    localStorage.setItem('aliensGameMusicPaused', 'true')
+                } else {
+                    localStorage.removeItem('aliensGameMusicPaused')
+                }
+            }
+        }, 100)
+    }
+
+    // Play music when game starts, unless explicitly paused in-game
+    const gameStartedRef = useRef(false)
+    useEffect(() => {
+        if (gameState === 'playing' && !gameStartedRef.current) {
+            gameStartedRef.current = true
+            const musicWasPausedInGame = localStorage.getItem('aliensGameMusicPaused') === 'true'
+            if (!musicWasPausedInGame && musicAudioRef.current && musicAudioRef.current.paused) {
+                // Set volume before playing (no transition, immediate)
+                const targetVolume = soundEnabled ? 0.25 : 1.0
+                musicAudioRef.current.volume = targetVolume
+                const playPromise = musicAudioRef.current.play()
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        // Silently fail if autoplay is blocked (browser policy)
+                        console.error('Auto-play music on game start failed:', error)
+                    })
+                }
+            }
+        } else if (gameState === 'menu' || gameState === 'gameover') {
+            gameStartedRef.current = false
+        }
+    }, [gameState, musicAudioRef, soundEnabled])
 
     // Handle navigation back to home with analytics
     const handleBackToHome = () => {
@@ -562,6 +671,30 @@ function AliensGame() {
     const toggleSound = () => {
         setSoundEnabled(prev => !prev)
     }
+
+    // Track if we've initialized volume (skip transition on initial mount)
+    const volumeInitializedRef = useRef(false)
+
+    // Adjust music volume based on sound effects state (gradual transition)
+    useEffect(() => {
+        if (!volumeInitializedRef.current) {
+            // Skip transition on initial mount (volume was already set in game entry effect)
+            volumeInitializedRef.current = true
+            return () => {
+                // Restore volume to 100% when leaving game route
+                transitionVolume(1.0)
+            }
+        }
+
+        // After initial mount, use gradual transitions when sound effects toggle changes
+        const targetVolume = soundEnabled ? 0.25 : 1.0 // 25% when sound effects on, 100% when off
+        transitionVolume(targetVolume)
+
+        return () => {
+            // Restore volume to 100% when leaving game route
+            transitionVolume(1.0)
+        }
+    }, [soundEnabled, transitionVolume])
 
     // Game loop
     useEffect(() => {
@@ -2274,6 +2407,19 @@ function AliensGame() {
                         </svg>
                     )}
                 </button>
+
+                {/* Music toggle button for mobile */}
+                <button
+                    onClick={handleMusicToggle}
+                    className="absolute top-24 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    aria-label={musicIsPlaying ? 'Pause music' : 'Play music'}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                </button>
                 
                 <canvas
                     ref={canvasRef}
@@ -2314,25 +2460,40 @@ function AliensGame() {
                     ← Back to Home
                 </button>
                 
-                {/* Sound toggle button for desktop */}
-                <button
-                    onClick={toggleSound}
-                    className="text-neon-cyan hover:text-white transition-colors p-2"
-                    aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
-                >
-                    {soundEnabled ? (
+                <div className="flex items-center gap-2">
+                    {/* Sound toggle button for desktop */}
+                    <button
+                        onClick={toggleSound}
+                        className="text-neon-cyan hover:text-white transition-colors p-2"
+                        aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
+                    >
+                        {soundEnabled ? (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                        ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                                <line x1="23" y1="9" x2="17" y2="15"></line>
+                                <line x1="17" y1="9" x2="23" y2="15"></line>
+                            </svg>
+                        )}
+                    </button>
+
+                    {/* Music toggle button for desktop */}
+                    <button
+                        onClick={handleMusicToggle}
+                        className="text-neon-cyan hover:text-white transition-colors p-2"
+                        aria-label={musicIsPlaying ? 'Pause music' : 'Play music'}
+                    >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
                         </svg>
-                    ) : (
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
-                            <line x1="23" y1="9" x2="17" y2="15"></line>
-                            <line x1="17" y1="9" x2="23" y2="15"></line>
-                        </svg>
-                    )}
-                </button>
+                    </button>
+                </div>
             </div>
             
             <div className="border-2 border-neon-cyan rounded-lg p-4 shadow-lg shadow-neon-cyan/50">
