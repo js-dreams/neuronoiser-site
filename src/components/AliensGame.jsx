@@ -96,6 +96,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [lives, setLives] = useState(1)
     const [soundEnabled, setSoundEnabled] = useState(true)
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
+    const [deathCountdown, setDeathCountdown] = useState(0) // 0 = no death countdown, 3-1 = death countdown in progress
+    const [gameOverWait, setGameOverWait] = useState(false) // true = waiting 3 seconds after final death before allowing restart
     const [isCelebrating, setIsCelebrating] = useState(false)
     const [celebrationStartTime, setCelebrationStartTime] = useState(null)
     const [showHelpDialog, setShowHelpDialog] = useState(false)
@@ -276,6 +278,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         // Clear any saved game state
         onClearGameState()
         setCountdown(0)
+        setDeathCountdown(0)
+        setGameOverWait(false)
         setIsCelebrating(false)
         setCelebrationStartTime(null)
         fireworksRef.current = []
@@ -323,11 +327,17 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             previousHighScoreRef.current = newHighScore
             localStorage.setItem('aliensHighScore', newHighScore.toString())
         }
-        // Game over sound
+        // Sad sound (80's computer style - descending low frequency)
         if (soundEnabled) {
-            createSound(150, 0.2, 'sawtooth', 0.2)
-            setTimeout(() => createSound(100, 0.3, 'sawtooth', 0.2), 200)
+            createSound(200, 0.3, 'sawtooth', 0.25)
+            setTimeout(() => createSound(150, 0.3, 'sawtooth', 0.25), 300)
+            setTimeout(() => createSound(100, 0.4, 'sawtooth', 0.25), 600)
         }
+        // Wait 3 seconds before allowing restart
+        setGameOverWait(true)
+        setTimeout(() => {
+            setGameOverWait(false)
+        }, 3000)
     }, [highScore, soundEnabled])
 
     // Keyboard handlers
@@ -338,7 +348,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 e.preventDefault()
                 if (gameStateRef.current.gameState === 'menu') {
                     startGame()
-                } else if (gameStateRef.current.gameState === 'gameover') {
+                } else if (gameStateRef.current.gameState === 'gameover' && !gameOverWait) {
                     startGame()
                 }
             }
@@ -355,7 +365,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             window.removeEventListener('keydown', handleKeyDown)
             window.removeEventListener('keyup', handleKeyUp)
         }
-    }, [startGame])
+    }, [startGame, gameOverWait])
 
     // Touch handlers
     useEffect(() => {
@@ -374,7 +384,10 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
         const handleTouchStart = (e) => {
             e.preventDefault()
-            if (gameStateRef.current.gameState === 'menu' || gameStateRef.current.gameState === 'gameover') {
+            if (gameStateRef.current.gameState === 'menu') {
+                startGame()
+                return
+            } else if (gameStateRef.current.gameState === 'gameover' && !gameOverWait) {
                 startGame()
                 return
             }
@@ -420,7 +433,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             canvas.removeEventListener('touchend', handleTouchEnd)
             canvas.removeEventListener('touchcancel', handleTouchEnd)
         }
-    }, [startGame, isMobile])
+    }, [startGame, isMobile, gameOverWait])
 
     // Load high score and restore game state on mount
     useEffect(() => {
@@ -450,6 +463,42 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             return () => clearTimeout(timer)
         }
     }, [countdown])
+
+    // Death countdown timer
+    useEffect(() => {
+        if (deathCountdown > 0) {
+            const timer = setTimeout(() => {
+                if (deathCountdown > 1) {
+                    setDeathCountdown(deathCountdown - 1)
+                } else {
+                    setDeathCountdown(0)
+                    // Clear all enemies and bullets, reset player position
+                    enemiesRef.current = []
+                    bulletsRef.current = []
+                    enemyBulletsRef.current = []
+                    playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
+                    
+                    // Clear clock extenders (useless since we're clearing special powers)
+                    clockExtenderPowerupsRef.current = []
+                    
+                    // Clear homing missiles (from super weapon powerup)
+                    homingMissilesRef.current = []
+                    
+                    // Clear all active special powers and their timers
+                    setScoreMultiplier(1)
+                    setScoreMultiplierEndTime(null)
+                    setMagicDefenceActive(false)
+                    setMagicDefenceEndTime(null)
+                    setSuperWeaponActive(false)
+                    setSuperWeaponEndTime(null)
+                    
+                    // Note: Regular powerups (lifePowerupsRef, scoreBonusPowerupsRef, 
+                    // magicDefencePowerupsRef, superWeaponPowerupsRef) continue falling
+                }
+            }, 1000)
+            return () => clearTimeout(timer)
+        }
+    }, [deathCountdown])
 
     // Celebration timer (5 seconds)
     useEffect(() => {
@@ -769,7 +818,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
-            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !showHelpDialogRef.current) {
+            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && deathCountdown === 0 && !showHelpDialogRef.current) {
                 frameCountRef.current++
 
                 // Check for new high score (only once per game, and only if there was a previous high score)
@@ -1057,6 +1106,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
                                     if (newLives <= 0) {
                                         gameOver()
+                                    } else {
+                                        // Start 3-second death countdown before resuming with next life
+                                        setDeathCountdown(3)
                                     }
                                     return newLives
                                 })
@@ -1596,6 +1648,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
                                     if (newLives <= 0) {
                                         gameOver()
+                                    } else {
+                                        // Start 3-second death countdown before resuming with next life
+                                        setDeathCountdown(3)
                                     }
                                     return newLives
                                 })
@@ -2254,8 +2309,46 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.textAlign = 'left'
             }
 
+            // Draw death countdown overlay
+            if (deathCountdown > 0 && gameStateRef.current.gameState === 'playing') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+                ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
+                
+                ctx.textAlign = 'center'
+                if (isMobile) {
+                    const scaleX = canvas.width / CANVAS_WIDTH
+                    const scaleY = canvas.height / CANVAS_HEIGHT
+                    const fontScale = scaleX
+                    
+                    // Draw lives remaining text above countdown
+                    ctx.fillStyle = '#FF0088'
+                    ctx.font = `bold ${18 * fontScale}px "Courier New", monospace`
+                    const livesText = gameStateRef.current.lives === 1 
+                        ? `You have 1 more life` 
+                        : `You have ${gameStateRef.current.lives} more lives`
+                    ctx.fillText(livesText, canvas.width / 2, (CANVAS_HEIGHT / 2 - 100) * scaleY)
+                    
+                    // Draw countdown number
+                    ctx.font = `bold ${72 * fontScale}px "Courier New", monospace`
+                    ctx.fillText(deathCountdown.toString(), canvas.width / 2, (CANVAS_HEIGHT / 2) * scaleY)
+                } else {
+                    // Draw lives remaining text above countdown
+                    ctx.fillStyle = '#FF0088'
+                    ctx.font = 'bold 18px "Courier New", monospace'
+                    const livesText = gameStateRef.current.lives === 1 
+                        ? `You have 1 more life` 
+                        : `You have ${gameStateRef.current.lives} more lives`
+                    ctx.fillText(livesText, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100)
+                    
+                    // Draw countdown number
+                    ctx.font = 'bold 72px "Courier New", monospace'
+                    ctx.fillText(deathCountdown.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2)
+                }
+                ctx.textAlign = 'left'
+            }
+
             // Draw level announcement overlay with fade-out
-            if (levelAnnouncementStartTimeRef.current && gameStateRef.current.gameState === 'playing' && countdown === 0) {
+            if (levelAnnouncementStartTimeRef.current && gameStateRef.current.gameState === 'playing' && countdown === 0 && deathCountdown === 0) {
                 const announcementAge = (Date.now() - levelAnnouncementStartTimeRef.current) / 1000 // seconds
                 const fadeDuration = 0.5 // fade out over 0.5 seconds
                 const showDuration = 1.5 // show fully for 1.5 seconds
@@ -2406,7 +2499,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
+    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
 
     if (isMobile) {
         // Mobile: Full screen canvas
