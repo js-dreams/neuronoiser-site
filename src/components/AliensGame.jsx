@@ -142,6 +142,15 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const clockExtenderDisabledForMagicDefenceRef = useRef(false)
     const clockExtenderDisabledForSuperWeaponRef = useRef(false)
 
+    // Refs for help dialog icon canvases
+    const regularEnemyIconRef = useRef(null)
+    const skullEnemyIconRef = useRef(null)
+    const lifePowerupIconRef = useRef(null)
+    const scorePowerupIconRef = useRef(null)
+    const magicDefencePowerupIconRef = useRef(null)
+    const superWeaponPowerupIconRef = useRef(null)
+    const clockExtenderPowerupIconRef = useRef(null)
+
     // Initialize stars
     useEffect(() => {
         starsRef.current = Array.from({ length: STAR_COUNT }, () => ({
@@ -812,6 +821,247 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             }
         }
     }
+
+    // Helper functions to draw small icons for help dialog
+    const drawRegularEnemyIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        // Outer glow
+        ctx.shadowBlur = 4
+        ctx.shadowColor = '#FF4400'
+        ctx.fillStyle = '#8B0000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        
+        // Main body
+        ctx.shadowBlur = 0
+        ctx.fillStyle = '#CC0000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius * 0.85, 0, Math.PI * 2)
+        ctx.fill()
+        
+        // Center detail
+        ctx.fillStyle = '#FFAA00'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+    }, [])
+
+    const drawSkullEnemyIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        // Red halo
+        ctx.shadowBlur = 6
+        ctx.shadowColor = '#FF0000'
+        ctx.fillStyle = '#000000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        
+        // Main body
+        ctx.shadowBlur = 0
+        ctx.fillStyle = '#1A0000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        
+        // Skull symbol (simplified)
+        ctx.fillStyle = '#666666'
+        ctx.strokeStyle = '#000000'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(centerX, centerY - radius * 0.2, radius * 0.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        
+        // Eye sockets
+        ctx.fillStyle = '#FF0000'
+        ctx.shadowBlur = 3
+        ctx.shadowColor = '#FF0000'
+        ctx.beginPath()
+        ctx.arc(centerX - radius * 0.25, centerY - radius * 0.25, radius * 0.1, 0, Math.PI * 2)
+        ctx.arc(centerX + radius * 0.25, centerY - radius * 0.25, radius * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.restore()
+    }, [])
+
+    const drawLifePowerupIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        ctx.fillStyle = '#0088FF'
+        ctx.shadowBlur = 4
+        ctx.shadowColor = '#0088FF'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        
+        ctx.fillStyle = '#FFFFFF'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.font = 'bold 10px "Courier New", monospace'
+        ctx.fillText('+1', centerX, centerY)
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'alphabetic'
+        ctx.restore()
+    }, [])
+
+    const drawScorePowerupIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        const gradient = ctx.createRadialGradient(centerX - radius * 0.3, centerY - radius * 0.3, 0, centerX, centerY, radius)
+        gradient.addColorStop(0, '#ADFF2F')
+        gradient.addColorStop(0.5, '#32CD32')
+        gradient.addColorStop(1, '#228B22')
+        ctx.fillStyle = gradient
+        ctx.shadowBlur = 5
+        ctx.shadowColor = '#00FF00'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        
+        ctx.fillStyle = '#FFFFFF'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.font = 'bold 8px "Courier New", monospace'
+        ctx.fillText('3X', centerX, centerY)
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'alphabetic'
+        ctx.restore()
+    }, [])
+
+    const drawMagicDefencePowerupIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        const gradient = ctx.createRadialGradient(centerX - radius * 0.3, centerY - radius * 0.3, 0, centerX, centerY, radius)
+        gradient.addColorStop(0, '#9370DB')
+        gradient.addColorStop(0.5, '#8A2BE2')
+        gradient.addColorStop(1, '#4B0082')
+        ctx.fillStyle = gradient
+        ctx.shadowBlur = 5
+        ctx.shadowColor = '#9370DB'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.restore()
+    }, [])
+
+    const drawSuperWeaponPowerupIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        const gradient = ctx.createRadialGradient(centerX - radius * 0.3, centerY - radius * 0.3, 0, centerX, centerY, radius)
+        gradient.addColorStop(0, '#40E0D0') // Bright turquoise
+        gradient.addColorStop(0.5, '#00CED1') // Dark turquoise
+        gradient.addColorStop(1, '#008B8B') // Dark cyan
+        ctx.fillStyle = gradient
+        ctx.shadowBlur = 5
+        ctx.shadowColor = '#40E0D0'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        
+        // Crosshair
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 1
+        const symbolSize = radius * 0.5
+        ctx.beginPath()
+        ctx.moveTo(centerX - symbolSize, centerY)
+        ctx.lineTo(centerX + symbolSize, centerY)
+        ctx.moveTo(centerX, centerY - symbolSize)
+        ctx.lineTo(centerX, centerY + symbolSize)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, symbolSize * 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+    }, [])
+
+    const drawClockExtenderPowerupIcon = useCallback((ctx, size = 20) => {
+        const centerX = size / 2
+        const centerY = size / 2
+        const radius = size * 0.4
+        
+        ctx.save()
+        const gradient = ctx.createRadialGradient(centerX - radius * 0.3, centerY - radius * 0.3, 0, centerX, centerY, radius)
+        gradient.addColorStop(0, '#F0F0F0')
+        gradient.addColorStop(0.5, '#E0E0E0')
+        gradient.addColorStop(1, '#C0C0C0')
+        ctx.fillStyle = gradient
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fill()
+        
+        ctx.strokeStyle = '#000000'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        
+        // Clock hands
+        ctx.strokeStyle = '#000000'
+        ctx.lineWidth = 1
+        ctx.lineCap = 'round'
+        const clockRadius = radius * 0.8
+        ctx.beginPath()
+        ctx.moveTo(centerX, centerY)
+        ctx.lineTo(centerX + clockRadius * 0.4, centerY)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(centerX, centerY)
+        ctx.lineTo(centerX, centerY - clockRadius * 0.6)
+        ctx.stroke()
+        
+        ctx.fillStyle = '#000000'
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+    }, [])
+
+    // Draw help dialog icons
+    useEffect(() => {
+        if (!showHelpDialog) return
+
+        const iconSize = 24
+        const drawIcon = (canvasRef, drawFn) => {
+            const canvas = canvasRef.current
+            if (!canvas) return
+            canvas.width = iconSize
+            canvas.height = iconSize
+            const ctx = canvas.getContext('2d')
+            drawFn(ctx, iconSize)
+        }
+
+        drawIcon(regularEnemyIconRef, drawRegularEnemyIcon)
+        drawIcon(skullEnemyIconRef, drawSkullEnemyIcon)
+        drawIcon(lifePowerupIconRef, drawLifePowerupIcon)
+        drawIcon(scorePowerupIconRef, drawScorePowerupIcon)
+        drawIcon(magicDefencePowerupIconRef, drawMagicDefencePowerupIcon)
+        drawIcon(superWeaponPowerupIconRef, drawSuperWeaponPowerupIcon)
+        drawIcon(clockExtenderPowerupIconRef, drawClockExtenderPowerupIcon)
+    }, [showHelpDialog, drawRegularEnemyIcon, drawSkullEnemyIcon, drawLifePowerupIcon, drawScorePowerupIcon, drawMagicDefencePowerupIcon, drawSuperWeaponPowerupIcon, drawClockExtenderPowerupIcon])
 
     // Track if we've initialized volume (skip transition on initial mount)
     const volumeInitializedRef = useRef(false)
@@ -1975,29 +2225,43 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Draw enemies
                 enemiesRef.current.forEach(enemy => {
-                    ctx.fillStyle = '#FF00FF'
                     const enemyRadiusX = isMobile ? enemy.width : enemy.width / 2
                     const enemyRadiusY = enemy.width / 2
                     const centerX = enemy.x + enemy.width / 2
                     const centerY = enemy.y + enemy.height / 2
-                    ctx.beginPath()
-                    if (isMobile) {
-                        ctx.ellipse(centerX, centerY, enemyRadiusX, enemyRadiusY, 0, 0, Math.PI * 2)
-                    } else {
-                        ctx.arc(centerX, centerY, enemyRadiusX, 0, Math.PI * 2)
-                    }
-                    ctx.fill()
                     
-                    // Enemy glow
-                    ctx.shadowBlur = 10
-                    ctx.shadowColor = '#FF00FF'
-                    ctx.fill()
-                    ctx.shadowBlur = 0
-
                     // Enemy details or skull for mega enemies
                     if (enemy.isMega) {
-                        // Draw skull symbol
-                        ctx.fillStyle = '#FFFFFF'
+                        // Skull ships: black body with red halo effect
+                        ctx.save()
+                        
+                        // Red halo/glow effect (drawn first, behind the body)
+                        ctx.shadowBlur = 20
+                        ctx.shadowColor = '#FF0000'
+                        ctx.fillStyle = '#000000'
+                        ctx.beginPath()
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY, enemyRadiusX, enemyRadiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY, enemyRadiusX, 0, Math.PI * 2)
+                        }
+                        ctx.fill()
+                        
+                        // Main body: very dark/black
+                        ctx.shadowBlur = 0
+                        ctx.fillStyle = '#1A0000' // Very dark red-black
+                        ctx.beginPath()
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY, enemyRadiusX, enemyRadiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY, enemyRadiusX, 0, Math.PI * 2)
+                        }
+                        ctx.fill()
+                        
+                        ctx.restore()
+                        
+                        // Draw skull symbol (darker, more visible against black)
+                        ctx.fillStyle = '#666666' // Gray skull for visibility
                         ctx.strokeStyle = '#000000'
                         ctx.lineWidth = 2
                         
@@ -2015,15 +2279,18 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         ctx.fill()
                         ctx.stroke()
                         
-                        // Eye sockets
-                        ctx.fillStyle = '#000000'
+                        // Eye sockets (red glow)
+                        ctx.fillStyle = '#FF0000'
+                        ctx.shadowBlur = 8
+                        ctx.shadowColor = '#FF0000'
                         ctx.beginPath()
                         ctx.arc(centerX - sizeX * 0.25, centerY - sizeY * 0.3, sizeY * 0.15, 0, Math.PI * 2)
                         ctx.arc(centerX + sizeX * 0.25, centerY - sizeY * 0.3, sizeY * 0.15, 0, Math.PI * 2)
                         ctx.fill()
+                        ctx.shadowBlur = 0
                         
-                        // Jaw/teeth (simple triangle)
-                        ctx.fillStyle = '#FFFFFF'
+                        // Jaw/teeth (gray with red accent)
+                        ctx.fillStyle = '#888888'
                         ctx.strokeStyle = '#000000'
                         ctx.beginPath()
                         ctx.moveTo(centerX - sizeX * 0.4, centerY + sizeY * 0.1)
@@ -2035,10 +2302,38 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         
                         ctx.lineWidth = 1
                     } else {
-                        // Regular enemy details
-                        ctx.fillStyle = '#FF0088'
-                        const detailRadiusX = isMobile ? enemy.width / 2 : enemy.width / 4
-                        const detailRadiusY = enemy.width / 4
+                        // Regular enemy ships: yellow, red, and black combination
+                        ctx.save()
+                        
+                        // Outer glow: red-orange
+                        ctx.shadowBlur = 12
+                        ctx.shadowColor = '#FF4400'
+                        ctx.fillStyle = '#8B0000' // Dark red base
+                        ctx.beginPath()
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY, enemyRadiusX, enemyRadiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY, enemyRadiusX, 0, Math.PI * 2)
+                        }
+                        ctx.fill()
+                        
+                        // Main body: dark red with black accents
+                        ctx.shadowBlur = 0
+                        ctx.fillStyle = '#CC0000' // Red
+                        ctx.beginPath()
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY, enemyRadiusX * 0.85, enemyRadiusY * 0.85, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY, enemyRadiusX * 0.85, 0, Math.PI * 2)
+                        }
+                        ctx.fill()
+                        
+                        ctx.restore()
+                        
+                        // Center detail: yellow accent
+                        ctx.fillStyle = '#FFAA00' // Yellow-orange
+                        const detailRadiusX = isMobile ? enemy.width / 3 : enemy.width / 5
+                        const detailRadiusY = enemy.width / 5
                         ctx.beginPath()
                         if (isMobile) {
                             ctx.ellipse(centerX, centerY, detailRadiusX, detailRadiusY, 0, 0, Math.PI * 2)
@@ -2206,7 +2501,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
                     const powerupRadiusY = powerup.size
                     
-                    // Bright orange circle with glow
+                    // Bright turquoise circle with glow
                     const gradient = ctx.createRadialGradient(
                         powerup.x - powerupRadiusX * 0.3, 
                         powerup.y - powerupRadiusY * 0.3, 
@@ -2215,9 +2510,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         powerup.y, 
                         powerupRadiusX
                     )
-                    gradient.addColorStop(0, '#FFA500') // Bright orange
-                    gradient.addColorStop(0.5, '#FF8C00') // Darker orange
-                    gradient.addColorStop(1, '#FF6600') // Deep orange
+                    gradient.addColorStop(0, '#40E0D0') // Bright turquoise
+                    gradient.addColorStop(0.5, '#00CED1') // Dark turquoise
+                    gradient.addColorStop(1, '#008B8B') // Dark cyan
                     ctx.fillStyle = gradient
                     ctx.beginPath()
                     if (isMobile) {
@@ -2229,7 +2524,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     
                     // Outer glow
                     ctx.shadowBlur = 20
-                    ctx.shadowColor = '#FFA500'
+                    ctx.shadowColor = '#40E0D0'
                     ctx.fill()
                     ctx.shadowBlur = 0
 
@@ -2662,7 +2957,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {navigator.share && (
                     <button
                         onClick={handleShare}
-                        className="absolute top-[44px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                        className="absolute top-[44px] right-4 z-20 text-neon-cyan hover:text-white transition-colors p-2"
                         aria-label="Share game"
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2678,7 +2973,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Help button for mobile */}
                 <button
                     onClick={() => setShowHelpDialog(true)}
-                    className="absolute top-[80px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[80px] right-4 z-20 text-neon-cyan hover:text-white transition-colors p-2"
                     aria-label="Show help"
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2691,7 +2986,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Sound toggle button for mobile */}
                 <button
                     onClick={toggleSound}
-                    className="absolute top-[116px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[116px] right-4 z-20 text-neon-cyan hover:text-white transition-colors p-2"
                     aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
                 >
                     {soundEnabled ? (
@@ -2711,7 +3006,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Music toggle button for mobile */}
                 <button
                     onClick={handleMusicToggle}
-                    className="absolute top-[152px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[152px] right-4 z-20 text-neon-cyan hover:text-white transition-colors p-2"
                     aria-label={musicIsPlaying ? 'Pause music' : 'Play music'}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2787,8 +3082,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     <div>
                                         <h3 className="text-lg font-semibold text-white mb-2">Enemies</h3>
                                         <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li>Regular enemies: 100 points each</li>
-                                            <li>Skull ships (red): 500 points each, can shoot back at you</li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={regularEnemyIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span>Regular enemies: 100 points each</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={skullEnemyIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span>Skull ships (red): 500 points each, can shoot back at you</span>
+                                            </li>
                                             <li>Enemy difficulty increases with each level</li>
                                         </ul>
                                     </div>
@@ -2796,11 +3097,26 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     <div>
                                         <h3 className="text-lg font-semibold text-white mb-2">Powerups</h3>
                                         <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li><strong>+1 Life</strong> (green cross): Gain an extra life</li>
-                                            <li><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</li>
-                                            <li><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</li>
-                                            <li><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</li>
-                                            <li><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={lifePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span><strong>+1 Life</strong> (green cross): Gain an extra life</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={scorePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={magicDefencePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={superWeaponPowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <canvas ref={clockExtenderPowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                                <span><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</span>
+                                            </li>
                                         </ul>
                                     </div>
 
@@ -2950,8 +3266,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-2">Enemies</h3>
                                     <ul className="list-disc list-inside ml-2 space-y-1">
-                                        <li>Regular enemies: 100 points each</li>
-                                        <li>Skull ships (red): 500 points each, can shoot back at you</li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={regularEnemyIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span>Regular enemies: 100 points each</span>
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={skullEnemyIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span>Skull ships (red): 500 points each, can shoot back at you</span>
+                                        </li>
                                         <li>Enemy difficulty increases with each level</li>
                                     </ul>
                                 </div>
@@ -2959,11 +3281,26 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-2">Powerups</h3>
                                     <ul className="list-disc list-inside ml-2 space-y-1">
-                                        <li><strong>+1 Life</strong> (green cross): Gain an extra life</li>
-                                        <li><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</li>
-                                        <li><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</li>
-                                        <li><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</li>
-                                        <li><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={lifePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span><strong>+1 Life</strong> (green cross): Gain an extra life</span>
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={scorePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</span>
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={magicDefencePowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</span>
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={superWeaponPowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</span>
+                                        </li>
+                                        <li className="flex items-center gap-2">
+                                            <canvas ref={clockExtenderPowerupIconRef} className="inline-block" style={{ width: '24px', height: '24px' }}></canvas>
+                                            <span><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</span>
+                                        </li>
                                     </ul>
                                 </div>
 
