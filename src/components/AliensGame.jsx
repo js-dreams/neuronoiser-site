@@ -162,37 +162,44 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     }, [])
 
     // Calculate difficulty based on level (1-10)
+    // Rescaled so that level 10 equals old level 8 difficulty (more gradual progression)
+    // Map current level (1-10) to old level scale (1-8): oldLevel = 1 + (currentLevel - 1) * 7/9
     const getEnemySpeed = useCallback((currentLevel) => {
-        // Level 1: 2, Level 10: 5 (easy to very hard)
-        return 2 + (currentLevel - 1) * (3 / 9)
+        const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
+        // Old formula: Level 1: 2, Level 8: ~4.333 (what was level 8, now level 10)
+        return 2 + (oldLevel - 1) * (3 / 9)
     }, [])
 
     const getEnemySpawnRate = useCallback((currentLevel) => {
-        // Level 1: 60 frames, Level 10: 20 frames (slower to faster spawning)
-        return Math.max(20, 60 - (currentLevel - 1) * (40 / 9))
+        const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
+        // Old formula: Level 1: 60 frames, Level 8: ~28.89 frames (what was level 8, now level 10)
+        return Math.max(20, 60 - (oldLevel - 1) * (40 / 9))
     }, [])
 
     const getEnemyHorizontalSpeed = useCallback((currentLevel) => {
-        // Level 1: ~0.1, Level 10: ~3 (almost zero to quite fast)
-        return 0.1 + (currentLevel - 1) * (2.9 / 9)
+        const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
+        // Old formula: Level 1: ~0.1, Level 8: ~2.36 (what was level 8, now level 10)
+        return 0.1 + (oldLevel - 1) * (2.9 / 9)
     }, [])
 
     const getMegaEnemySpawnChance = useCallback((currentLevel) => {
-        // Level 1: 1% chance (extremely rare), Level 10: 80% chance (very common)
-        return 0.01 + (currentLevel - 1) * (0.79 / 9)
+        const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
+        // Old formula: Level 1: 1% chance, Level 8: ~62.4% chance (what was level 8, now level 10)
+        return 0.01 + (oldLevel - 1) * (0.79 / 9)
     }, [])
 
     const getMegaEnemyFireRate = useCallback((currentLevel) => {
-        // Level 1-3: Slow fire rate (fires once or twice), Level 4-6: Medium, Level 7-10: Rapid
-        if (currentLevel <= 3) {
-            // Level 1: 600 frames, Level 2: 500 frames, Level 3: 400 frames (allows at least one shot)
-            return 700 - (currentLevel - 1) * 100
-        } else if (currentLevel <= 6) {
-            // Level 4-6: Medium fire rate (120-90 frames)
-            return 150 - (currentLevel - 4) * 10
+        const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
+        // Old formula with piecewise function
+        if (oldLevel <= 3) {
+            // Level 1-3: Slow fire rate
+            return 700 - (oldLevel - 1) * 100
+        } else if (oldLevel <= 6) {
+            // Level 4-6: Medium fire rate
+            return 150 - (oldLevel - 4) * 10
         } else {
-            // Level 7-10: Rapid fire (60-30 frames)
-            return 75 - (currentLevel - 7) * 15
+            // Level 7-8: Rapid fire (old level 8, now level 10)
+            return 75 - (oldLevel - 7) * 15
         }
     }, [])
 
