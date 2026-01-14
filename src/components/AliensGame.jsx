@@ -1861,11 +1861,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Draw player
                 ctx.fillStyle = '#00FFFF'
+                const playerWidth = isMobile ? 30 : 15
                 ctx.beginPath()
                 ctx.moveTo(player.x, player.y - 25)
-                ctx.lineTo(player.x - 15, player.y + 15)
+                ctx.lineTo(player.x - playerWidth, player.y + 15)
                 ctx.lineTo(player.x, player.y + 5)
-                ctx.lineTo(player.x + 15, player.y + 15)
+                ctx.lineTo(player.x + playerWidth, player.y + 15)
                 ctx.closePath()
                 ctx.fill()
                 
@@ -1940,8 +1941,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Draw enemies
                 enemiesRef.current.forEach(enemy => {
                     ctx.fillStyle = '#FF00FF'
+                    const enemyRadiusX = isMobile ? enemy.width : enemy.width / 2
+                    const enemyRadiusY = enemy.width / 2
+                    const centerX = enemy.x + enemy.width / 2
+                    const centerY = enemy.y + enemy.height / 2
                     ctx.beginPath()
-                    ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 2, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(centerX, centerY, enemyRadiusX, enemyRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(centerX, centerY, enemyRadiusX, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Enemy glow
@@ -1957,31 +1966,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         ctx.strokeStyle = '#000000'
                         ctx.lineWidth = 2
                         
-                        const centerX = enemy.x + enemy.width / 2
-                        const centerY = enemy.y + enemy.height / 2
-                        const size = enemy.width / 3
+                        const sizeX = enemyRadiusX
+                        const sizeY = enemyRadiusY
                         
                         // Skull shape (simplified 80's style)
                         ctx.beginPath()
-                        // Head (circle)
-                        ctx.arc(centerX, centerY - size * 0.2, size * 0.7, 0, Math.PI * 2)
+                        // Head (ellipse on mobile, circle on desktop)
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY - sizeY * 0.2, sizeX * 0.7, sizeY * 0.7, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY - sizeY * 0.2, sizeY * 0.7, 0, Math.PI * 2)
+                        }
                         ctx.fill()
                         ctx.stroke()
                         
                         // Eye sockets
                         ctx.fillStyle = '#000000'
                         ctx.beginPath()
-                        ctx.arc(centerX - size * 0.25, centerY - size * 0.3, size * 0.15, 0, Math.PI * 2)
-                        ctx.arc(centerX + size * 0.25, centerY - size * 0.3, size * 0.15, 0, Math.PI * 2)
+                        ctx.arc(centerX - sizeX * 0.25, centerY - sizeY * 0.3, sizeY * 0.15, 0, Math.PI * 2)
+                        ctx.arc(centerX + sizeX * 0.25, centerY - sizeY * 0.3, sizeY * 0.15, 0, Math.PI * 2)
                         ctx.fill()
                         
                         // Jaw/teeth (simple triangle)
                         ctx.fillStyle = '#FFFFFF'
                         ctx.strokeStyle = '#000000'
                         ctx.beginPath()
-                        ctx.moveTo(centerX - size * 0.4, centerY + size * 0.1)
-                        ctx.lineTo(centerX, centerY + size * 0.6)
-                        ctx.lineTo(centerX + size * 0.4, centerY + size * 0.1)
+                        ctx.moveTo(centerX - sizeX * 0.4, centerY + sizeY * 0.1)
+                        ctx.lineTo(centerX, centerY + sizeY * 0.6)
+                        ctx.lineTo(centerX + sizeX * 0.4, centerY + sizeY * 0.1)
                         ctx.closePath()
                         ctx.fill()
                         ctx.stroke()
@@ -1990,18 +2002,30 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     } else {
                         // Regular enemy details
                         ctx.fillStyle = '#FF0088'
+                        const detailRadiusX = isMobile ? enemy.width / 2 : enemy.width / 4
+                        const detailRadiusY = enemy.width / 4
                         ctx.beginPath()
-                        ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.width / 4, 0, Math.PI * 2)
+                        if (isMobile) {
+                            ctx.ellipse(centerX, centerY, detailRadiusX, detailRadiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(centerX, centerY, detailRadiusY, 0, Math.PI * 2)
+                        }
                         ctx.fill()
                     }
                 })
 
                 // Draw life powerups
                 lifePowerupsRef.current.forEach(powerup => {
-                    // Blue circle
+                    // Blue circle (ellipse on mobile - width doubled, height same)
                     ctx.fillStyle = '#0088FF'
+                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusY = powerup.size
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Powerup glow
@@ -2024,22 +2048,29 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 scoreBonusPowerupsRef.current.forEach(powerup => {
                     ctx.save()
                     
+                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusY = powerup.size
+                    
                     // Outer glow for shiny effect
                     ctx.shadowBlur = 20
                     ctx.shadowColor = '#00FF00'
                     ctx.fillStyle = '#32CD32'
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Bright shiny green gradient circle
                     const gradient = ctx.createRadialGradient(
-                        powerup.x - powerup.size * 0.3, 
-                        powerup.y - powerup.size * 0.3, 
+                        powerup.x - powerupRadiusX * 0.3, 
+                        powerup.y - powerupRadiusY * 0.3, 
                         0,
                         powerup.x, 
                         powerup.y, 
-                        powerup.size
+                        powerupRadiusX
                     )
                     gradient.addColorStop(0, '#ADFF2F') // Bright yellow-green
                     gradient.addColorStop(0.5, '#32CD32') // Lime green
@@ -2047,7 +2078,11 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.fillStyle = gradient
                     ctx.shadowBlur = 0
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Additional inner glow for shine
@@ -2072,11 +2107,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 magicDefencePowerupsRef.current.forEach(powerup => {
                     ctx.save()
                     
+                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusY = powerup.size
+                    
                     // Aura effect - multiple glowing layers
                     const auraColors = [
-                        { color: '#9370DB', opacity: 0.4, blur: 25, radius: powerup.size * 1.4 },
-                        { color: '#8A2BE2', opacity: 0.3, blur: 20, radius: powerup.size * 1.2 },
-                        { color: '#6A0DAD', opacity: 0.2, blur: 15, radius: powerup.size * 1.0 }
+                        { color: '#9370DB', opacity: 0.4, blur: 25, radiusX: powerupRadiusX * 1.4, radiusY: powerupRadiusY * 1.4 },
+                        { color: '#8A2BE2', opacity: 0.3, blur: 20, radiusX: powerupRadiusX * 1.2, radiusY: powerupRadiusY * 1.2 },
+                        { color: '#6A0DAD', opacity: 0.2, blur: 15, radiusX: powerupRadiusX * 1.0, radiusY: powerupRadiusY * 1.0 }
                     ]
                     
                     auraColors.forEach(aura => {
@@ -2085,7 +2123,11 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         ctx.shadowColor = aura.color
                         ctx.fillStyle = aura.color
                         ctx.beginPath()
-                        ctx.arc(powerup.x, powerup.y, aura.radius, 0, Math.PI * 2)
+                        if (isMobile) {
+                            ctx.ellipse(powerup.x, powerup.y, aura.radiusX, aura.radiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(powerup.x, powerup.y, aura.radiusY, 0, Math.PI * 2)
+                        }
                         ctx.fill()
                     })
                     
@@ -2094,19 +2136,23 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     
                     // Base circle with purple-blue gradient effect
                     const gradient = ctx.createRadialGradient(
-                        powerup.x - powerup.size * 0.3, 
-                        powerup.y - powerup.size * 0.3, 
+                        powerup.x - powerupRadiusX * 0.3, 
+                        powerup.y - powerupRadiusY * 0.3, 
                         0,
                         powerup.x, 
                         powerup.y, 
-                        powerup.size
+                        powerupRadiusX
                     )
                     gradient.addColorStop(0, '#9370DB')
                     gradient.addColorStop(0.5, '#8A2BE2')
                     gradient.addColorStop(1, '#4B0082')
                     ctx.fillStyle = gradient
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Inner glow
@@ -2122,21 +2168,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 superWeaponPowerupsRef.current.forEach(powerup => {
                     ctx.save()
                     
+                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusY = powerup.size
+                    
                     // Bright orange circle with glow
                     const gradient = ctx.createRadialGradient(
-                        powerup.x - powerup.size * 0.3, 
-                        powerup.y - powerup.size * 0.3, 
+                        powerup.x - powerupRadiusX * 0.3, 
+                        powerup.y - powerupRadiusY * 0.3, 
                         0,
                         powerup.x, 
                         powerup.y, 
-                        powerup.size
+                        powerupRadiusX
                     )
                     gradient.addColorStop(0, '#FFA500') // Bright orange
                     gradient.addColorStop(0.5, '#FF8C00') // Darker orange
                     gradient.addColorStop(1, '#FF6600') // Deep orange
                     ctx.fillStyle = gradient
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Outer glow
@@ -2152,7 +2205,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     
                     const centerX = powerup.x
                     const centerY = powerup.y
-                    const symbolSize = powerup.size * 0.5
+                    const symbolSize = powerupRadiusX * 0.5
                     
                     // Crosshair lines
                     ctx.beginPath()
@@ -2182,21 +2235,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 clockExtenderPowerupsRef.current.forEach(powerup => {
                     ctx.save()
                     
+                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusY = powerup.size
+                    
                     // Clock face circle (light gray/white)
                     const gradient = ctx.createRadialGradient(
-                        powerup.x - powerup.size * 0.3, 
-                        powerup.y - powerup.size * 0.3, 
+                        powerup.x - powerupRadiusX * 0.3, 
+                        powerup.y - powerupRadiusY * 0.3, 
                         0,
                         powerup.x, 
                         powerup.y, 
-                        powerup.size
+                        powerupRadiusX
                     )
                     gradient.addColorStop(0, '#F0F0F0')
                     gradient.addColorStop(0.5, '#E0E0E0')
                     gradient.addColorStop(1, '#C0C0C0')
                     ctx.fillStyle = gradient
                     ctx.beginPath()
-                    ctx.arc(powerup.x, powerup.y, powerup.size, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(powerup.x, powerup.y, powerupRadiusX, powerupRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(powerup.x, powerup.y, powerupRadiusY, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     
                     // Outer border
@@ -2211,7 +2271,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     
                     const centerX = powerup.x
                     const centerY = powerup.y
-                    const clockRadius = powerup.size * 0.8
+                    const clockRadius = powerupRadiusX * 0.8
                     
                     // Hour hand (pointing to 3 o'clock)
                     ctx.beginPath()
