@@ -98,6 +98,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
     const [isCelebrating, setIsCelebrating] = useState(false)
     const [celebrationStartTime, setCelebrationStartTime] = useState(null)
+    const [showHelpDialog, setShowHelpDialog] = useState(false)
     const [scoreMultiplier, setScoreMultiplier] = useState(1) // 1 or 3
     const [scoreMultiplierEndTime, setScoreMultiplierEndTime] = useState(null)
     const [magicDefenceActive, setMagicDefenceActive] = useState(false)
@@ -748,7 +749,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
-            if (gameStateRef.current.gameState === 'playing' && countdown === 0) {
+            if (gameStateRef.current.gameState === 'playing' && countdown === 0 && !showHelpDialog) {
                 frameCountRef.current++
 
                 // Check for new high score (only once per game, and only if there was a previous high score)
@@ -2431,6 +2432,19 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         <circle cx="18" cy="16" r="3"></circle>
                     </svg>
                 </button>
+
+                {/* Help button for mobile */}
+                <button
+                    onClick={() => setShowHelpDialog(true)}
+                    className="absolute top-[136px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    aria-label="Show help"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
                 
                 <canvas
                     ref={canvasRef}
@@ -2456,6 +2470,92 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 >
                     <p>Touch and drag to move • Touch to shoot</p>
                 </div>
+
+                {/* Help Dialog */}
+                {showHelpDialog && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                        <div className="relative bg-dark-gray border-2 border-neon-cyan rounded-lg shadow-lg shadow-neon-cyan/50 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                            <div className="flex items-center justify-between p-4 border-b border-neon-cyan/50">
+                                <h2 className="text-2xl font-mono font-semibold text-neon-cyan">Game Instructions</h2>
+                                <button
+                                    onClick={() => setShowHelpDialog(false)}
+                                    className="text-neon-cyan hover:text-white transition-colors p-1"
+                                    aria-label="Close help"
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="overflow-y-auto p-6 flex-1 text-neon-cyan font-mono">
+                                <div className="space-y-4 text-sm leading-relaxed">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Controls</h3>
+                                        <p className="mb-2"><strong>Desktop:</strong></p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Arrow Keys or WASD: Move your ship</li>
+                                            <li>Space: Shoot</li>
+                                        </ul>
+                                        <p className="mt-3 mb-2"><strong>Mobile:</strong></p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Touch and drag: Move your ship</li>
+                                            <li>Touch: Shoot</li>
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Objective</h3>
+                                        <p>Survive through 10 levels of increasing difficulty. Destroy enemy ships to score points and collect powerups to gain special abilities.</p>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Enemies</h3>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Regular enemies: 100 points each</li>
+                                            <li>Skull ships (red): 500 points each, can shoot back at you</li>
+                                            <li>Enemy difficulty increases with each level</li>
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Powerups</h3>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li><strong>+1 Life</strong> (green cross): Gain an extra life</li>
+                                            <li><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</li>
+                                            <li><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</li>
+                                            <li><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</li>
+                                            <li><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</li>
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Gameplay</h3>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>You start with 1 life</li>
+                                            <li>Lose a life when hit by enemy bullets or collisions</li>
+                                            <li>Game ends when all lives are lost</li>
+                                            <li>Each level lasts 60 seconds</li>
+                                            <li>Enemy spawn rate and speed increase each level</li>
+                                            <li>Beat your high score to unlock special celebrations!</li>
+                                        </ul>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-2">Tips</h3>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Stay mobile to avoid enemy fire</li>
+                                            <li>Collect powerups strategically</li>
+                                            <li>Use Magic Defence when overwhelmed</li>
+                                            <li>Combine 3X Score with Super Weapon for maximum points</li>
+                                            <li>Watch for Clock Extenders to extend your powerups</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         )
     }
@@ -2504,6 +2604,19 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             <circle cx="18" cy="16" r="3"></circle>
                         </svg>
                     </button>
+
+                    {/* Help button for desktop */}
+                    <button
+                        onClick={() => setShowHelpDialog(true)}
+                        className="text-neon-cyan hover:text-white transition-colors p-2"
+                        aria-label="Show help"
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </button>
                 </div>
             </div>
             
@@ -2519,6 +2632,92 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     }}
                 />
             </div>
+
+            {/* Help Dialog */}
+            {showHelpDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                    <div className="relative bg-dark-gray border-2 border-neon-cyan rounded-lg shadow-lg shadow-neon-cyan/50 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b border-neon-cyan/50">
+                            <h2 className="text-2xl font-mono font-semibold text-neon-cyan">Game Instructions</h2>
+                            <button
+                                onClick={() => setShowHelpDialog(false)}
+                                className="text-neon-cyan hover:text-white transition-colors p-1"
+                                aria-label="Close help"
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto p-6 flex-1 text-neon-cyan font-mono">
+                            <div className="space-y-4 text-sm leading-relaxed">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Controls</h3>
+                                    <p className="mb-2"><strong>Desktop:</strong></p>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li>Arrow Keys or WASD: Move your ship</li>
+                                        <li>Space: Shoot</li>
+                                    </ul>
+                                    <p className="mt-3 mb-2"><strong>Mobile:</strong></p>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li>Touch and drag: Move your ship</li>
+                                        <li>Touch: Shoot</li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Objective</h3>
+                                    <p>Survive through 10 levels of increasing difficulty. Destroy enemy ships to score points and collect powerups to gain special abilities.</p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Enemies</h3>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li>Regular enemies: 100 points each</li>
+                                        <li>Skull ships (red): 500 points each, can shoot back at you</li>
+                                        <li>Enemy difficulty increases with each level</li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Powerups</h3>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li><strong>+1 Life</strong> (green cross): Gain an extra life</li>
+                                        <li><strong>3X Score</strong> (yellow star): Triple your score for 20 seconds</li>
+                                        <li><strong>Magic Defence</strong> (purple shield): Become invincible for 20 seconds</li>
+                                        <li><strong>Super Weapon</strong> (orange missile): Fire 3 homing missiles for 20 seconds</li>
+                                        <li><strong>Clock Extender</strong> (white clock): Extends active powerup duration by 30 seconds</li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Gameplay</h3>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li>You start with 1 life</li>
+                                        <li>Lose a life when hit by enemy bullets or collisions</li>
+                                        <li>Game ends when all lives are lost</li>
+                                        <li>Each level lasts 60 seconds</li>
+                                        <li>Enemy spawn rate and speed increase each level</li>
+                                        <li>Beat your high score to unlock special celebrations!</li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-2">Tips</h3>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                        <li>Stay mobile to avoid enemy fire</li>
+                                        <li>Collect powerups strategically</li>
+                                        <li>Use Magic Defence when overwhelmed</li>
+                                        <li>Combine 3X Score with Super Weapon for maximum points</li>
+                                        <li>Watch for Clock Extenders to extend your powerups</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
