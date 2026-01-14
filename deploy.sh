@@ -70,6 +70,10 @@ git push origin gh-pages --force
 echo "↩️  Switching back to $CURRENT_BRANCH branch..."
 git checkout $CURRENT_BRANCH
 
+# Restore node_modules (npm install is idempotent, so safe to run always)
+echo "📦 Restoring dependencies..."
+npm install
+
 echo "✅ Deployment complete!"
 echo ""
 echo "📝 Next steps:"
