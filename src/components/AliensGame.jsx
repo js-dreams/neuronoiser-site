@@ -407,11 +407,20 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
             const touch = e.touches[0]
             const coords = getCanvasCoordinates(touch.clientX, touch.clientY)
+            const player = playerRef.current
+            
+            // Check if touch is on the player (within reasonable hitbox radius)
+            const PLAYER_HITBOX_RADIUS = 40 // pixels
+            const dx = coords.x - player.x
+            const dy = coords.y - player.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            const isOnPlayer = distance <= PLAYER_HITBOX_RADIUS
+            
             touchRef.current = {
                 x: coords.x,
                 y: coords.y,
                 isTouching: true,
-                shootPressed: true
+                shootPressed: isOnPlayer // Only set to true if touching directly on player
             }
         }
 
@@ -2858,6 +2867,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.font = `${24 * fontScale}px "Courier New", monospace`
                     ctx.fillText('TOUCH TO START', canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
                     
+                    ctx.font = `${14 * fontScale}px "Courier New", monospace`
+                    ctx.fillText('Touch ship to move & shoot | Touch elsewhere to move only', canvas.width / 2, canvas.height - 30 * scaleY)
+                    
                     ctx.textAlign = 'left'
                 } else {
                     ctx.font = 'bold 48px "Courier New", monospace'
@@ -3038,7 +3050,10 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         gameState === 'playing' || gameState === 'gameover' ? 'opacity-0' : 'opacity-100'
                     }`}
                 >
-                    <p>Touch and drag to move • Touch to shoot</p>
+                    <div>
+                        <p>Touch ship directly: Move and shoot</p>
+                        <p>Touch elsewhere: Move only</p>
+                    </div>
                 </div>
 
                 {/* Help Dialog */}
@@ -3069,8 +3084,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                         </ul>
                                         <p className="mt-3 mb-2"><strong>Mobile:</strong></p>
                                         <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li>Touch and drag: Move your ship</li>
-                                            <li>Touch: Shoot</li>
+                                            <li>Touch directly on your ship: Move and shoot</li>
+                                            <li>Touch elsewhere: Move only (release and touch ship to shoot)</li>
                                         </ul>
                                     </div>
 
@@ -3253,8 +3268,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     </ul>
                                     <p className="mt-3 mb-2"><strong>Mobile:</strong></p>
                                     <ul className="list-disc list-inside ml-2 space-y-1">
-                                        <li>Touch and drag: Move your ship</li>
-                                        <li>Touch: Shoot</li>
+                                        <li>Touch directly on your ship: Move and shoot</li>
+                                        <li>Touch elsewhere: Move only (release and touch ship to shoot)</li>
                                     </ul>
                                 </div>
 
