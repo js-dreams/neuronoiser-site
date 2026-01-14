@@ -685,6 +685,24 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setSoundEnabled(prev => !prev)
     }
 
+    // Share game using Web Share API
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Aliens Game (at neuronoiser.com)',
+                    text: 'Check out this retro space shooter game! Play Aliens - an 80s-style space shooter with powerups, 10 levels, and increasing difficulty.',
+                    url: window.location.href
+                })
+            } catch (error) {
+                // User cancelled or error occurred - silently fail
+                if (error.name !== 'AbortError') {
+                    console.error('Error sharing:', error)
+                }
+            }
+        }
+    }
+
     // Track if we've initialized volume (skip transition on initial mount)
     const volumeInitializedRef = useRef(false)
 
