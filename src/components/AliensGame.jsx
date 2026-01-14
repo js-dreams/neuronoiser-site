@@ -1522,8 +1522,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         
                         // Mega enemies fire bullets at the player
                         let lastShotFrame = enemy.lastShotFrame
-                        // Only shoot if enemy is at or above the player's y position (can't shoot upward)
-                        if (enemy.isMega && enemy.y > 0 && enemy.y < CANVAS_HEIGHT - 100 && enemy.y <= player.y) {
+                        // Only shoot if enemy's bottom is at or above the player's y position (can't shoot upward)
+                        if (enemy.isMega && enemy.y > 0 && enemy.y < CANVAS_HEIGHT - 100 && (enemy.y + enemy.height) <= player.y) {
                             // Fire rate varies by level (slow at low levels, rapid at high levels)
                             const fireRate = megaEnemyFireRate
                             // If lastShotFrame is null, allow immediate firing (set to a value that will trigger firing)
