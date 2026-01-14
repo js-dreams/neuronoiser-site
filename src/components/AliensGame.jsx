@@ -132,6 +132,9 @@ function AliensGame() {
     const clockExtenderSpawnedForScoreMultiplierRef = useRef(false)
     const clockExtenderSpawnedForMagicDefenceRef = useRef(false)
     const clockExtenderSpawnedForSuperWeaponRef = useRef(false)
+    const clockExtenderDisabledForScoreMultiplierRef = useRef(false)
+    const clockExtenderDisabledForMagicDefenceRef = useRef(false)
+    const clockExtenderDisabledForSuperWeaponRef = useRef(false)
 
     // Initialize stars
     useEffect(() => {
@@ -919,82 +922,143 @@ function AliensGame() {
 
                 // Spawn life powerups at random intervals (approximately once per level)
                 if (nextPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextPowerupSpawnFrameRef.current) {
-                    // Generate spawn position that avoids player's x position
+                    // Generate spawn position that avoids player's x position and player bullets/missiles
                     const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    const BULLET_AVOID_ZONE = 50 // Avoid spawning within 50 pixels of bullet/missile x position
                     let spawnX
                     let attempts = 0
                     do {
                         spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                         attempts++
-                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                        
+                        // Check if position is too close to player
+                        const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                        
+                        // Check if position would be in path of bullets (in upper screen area)
+                        const hasBulletInPath = bulletsRef.current.some(bullet => {
+                            const bulletCenterX = bullet.x
+                            return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                        })
+                        
+                        // Check if position would be in path of homing missiles (in upper screen area)
+                        const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                        })
+                        
+                        if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) {
+                            spawnX = null // Force retry
+                        }
+                    } while (spawnX === null && attempts < 30)
                     
-                    lifePowerupsRef.current.push({
-                        x: spawnX,
-                        y: -LIFE_POWERUP_SIZE,
-                        size: LIFE_POWERUP_SIZE
-                    })
-                    // Clear the spawn frame - next level advance will schedule a new one
-                    nextPowerupSpawnFrameRef.current = null
+                    if (spawnX !== null) {
+                        lifePowerupsRef.current.push({
+                            x: spawnX,
+                            y: -LIFE_POWERUP_SIZE,
+                            size: LIFE_POWERUP_SIZE
+                        })
+                        // Clear the spawn frame - next level advance will schedule a new one
+                        nextPowerupSpawnFrameRef.current = null
+                    }
                 }
 
                 // Spawn 3X score bonus powerups at random intervals (approximately once per level)
                 if (nextScoreBonusSpawnFrameRef.current !== null && frameCountRef.current >= nextScoreBonusSpawnFrameRef.current) {
-                    // Generate spawn position that avoids player's x position
-                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    // Generate spawn position that avoids player's x position and player bullets/missiles
+                    const PLAYER_AVOID_ZONE = 80
+                    const BULLET_AVOID_ZONE = 50
                     let spawnX
                     let attempts = 0
                     do {
                         spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                         attempts++
-                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                        const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                        const hasBulletInPath = bulletsRef.current.some(bullet => {
+                            const bulletCenterX = bullet.x
+                            return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                        })
+                        const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                        })
+                        if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                    } while (spawnX === null && attempts < 30)
                     
-                    scoreBonusPowerupsRef.current.push({
-                        x: spawnX,
-                        y: -LIFE_POWERUP_SIZE,
-                        size: LIFE_POWERUP_SIZE
-                    })
-                    // Clear the spawn frame - next level advance will schedule a new one
-                    nextScoreBonusSpawnFrameRef.current = null
+                    if (spawnX !== null) {
+                        scoreBonusPowerupsRef.current.push({
+                            x: spawnX,
+                            y: -LIFE_POWERUP_SIZE,
+                            size: LIFE_POWERUP_SIZE
+                        })
+                        // Clear the spawn frame - next level advance will schedule a new one
+                        nextScoreBonusSpawnFrameRef.current = null
+                    }
                 }
 
                 // Spawn magic defence powerups at random intervals (approximately once per level)
                 if (nextMagicDefenceSpawnFrameRef.current !== null && frameCountRef.current >= nextMagicDefenceSpawnFrameRef.current) {
-                    // Generate spawn position that avoids player's x position
-                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    // Generate spawn position that avoids player's x position and player bullets/missiles
+                    const PLAYER_AVOID_ZONE = 80
+                    const BULLET_AVOID_ZONE = 50
                     let spawnX
                     let attempts = 0
                     do {
                         spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                         attempts++
-                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                        const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                        const hasBulletInPath = bulletsRef.current.some(bullet => {
+                            const bulletCenterX = bullet.x
+                            return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                        })
+                        const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                        })
+                        if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                    } while (spawnX === null && attempts < 30)
                     
-                    magicDefencePowerupsRef.current.push({
-                        x: spawnX,
-                        y: -LIFE_POWERUP_SIZE,
-                        size: LIFE_POWERUP_SIZE
-                    })
-                    // Clear the spawn frame - next level advance will schedule a new one
-                    nextMagicDefenceSpawnFrameRef.current = null
+                    if (spawnX !== null) {
+                        magicDefencePowerupsRef.current.push({
+                            x: spawnX,
+                            y: -LIFE_POWERUP_SIZE,
+                            size: LIFE_POWERUP_SIZE
+                        })
+                        // Clear the spawn frame - next level advance will schedule a new one
+                        nextMagicDefenceSpawnFrameRef.current = null
+                    }
                 }
 
                 // Spawn super weapon powerups at random intervals (approximately once per level)
                 if (nextSuperWeaponSpawnFrameRef.current !== null && frameCountRef.current >= nextSuperWeaponSpawnFrameRef.current) {
-                    // Generate spawn position that avoids player's x position
-                    const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
+                    // Generate spawn position that avoids player's x position and player bullets/missiles
+                    const PLAYER_AVOID_ZONE = 80
+                    const BULLET_AVOID_ZONE = 50
                     let spawnX
                     let attempts = 0
                     do {
                         spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                         attempts++
-                    } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                        const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                        const hasBulletInPath = bulletsRef.current.some(bullet => {
+                            const bulletCenterX = bullet.x
+                            return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                        })
+                        const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                        })
+                        if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                    } while (spawnX === null && attempts < 30)
                     
-                    superWeaponPowerupsRef.current.push({
-                        x: spawnX,
-                        y: -LIFE_POWERUP_SIZE,
-                        size: LIFE_POWERUP_SIZE
-                    })
-                    // Clear the spawn frame - next level advance will schedule a new one
-                    nextSuperWeaponSpawnFrameRef.current = null
+                    if (spawnX !== null) {
+                        superWeaponPowerupsRef.current.push({
+                            x: spawnX,
+                            y: -LIFE_POWERUP_SIZE,
+                            size: LIFE_POWERUP_SIZE
+                        })
+                        // Clear the spawn frame - next level advance will schedule a new one
+                        nextSuperWeaponSpawnFrameRef.current = null
+                    }
                 }
 
                 // Spawn clock extender powerups (randomly between 5 and 1.5 seconds before expiration)
@@ -1008,78 +1072,126 @@ function AliensGame() {
                 const clockExtenderSpawnChance = 0.02 // 2% chance per frame when in window
                 
                 // Check score multiplier
-                if (scoreMultiplierEndTime && !clockExtenderSpawnedForScoreMultiplierRef.current) {
+                if (scoreMultiplierEndTime && !clockExtenderSpawnedForScoreMultiplierRef.current && !clockExtenderDisabledForScoreMultiplierRef.current) {
                     const timeRemaining = scoreMultiplierEndTime - now
                     if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
                         if (Math.random() < clockExtenderSpawnChance) {
                             clockExtenderSpawnedForScoreMultiplierRef.current = true
                             const PLAYER_AVOID_ZONE = 80
+                            const BULLET_AVOID_ZONE = 50
                             let spawnX
                             let attempts = 0
                             do {
                                 spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                                 attempts++
-                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                                const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                                const hasBulletInPath = bulletsRef.current.some(bullet => {
+                                    const bulletCenterX = bullet.x
+                                    return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                                })
+                                const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                                    const missileCenterX = missile.x + missile.width / 2
+                                    return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                                })
+                                if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                            } while (spawnX === null && attempts < 30)
                             
-                            clockExtenderPowerupsRef.current.push({
-                                x: spawnX,
-                                y: -LIFE_POWERUP_SIZE,
-                                size: LIFE_POWERUP_SIZE
-                            })
+                            if (spawnX !== null) {
+                                clockExtenderPowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                            }
                         }
                     }
                 }
                 
                 // Check magic defence
-                if (magicDefenceEndTime && !clockExtenderSpawnedForMagicDefenceRef.current) {
+                if (magicDefenceEndTime && !clockExtenderSpawnedForMagicDefenceRef.current && !clockExtenderDisabledForMagicDefenceRef.current) {
                     const timeRemaining = magicDefenceEndTime - now
                     if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
                         if (Math.random() < clockExtenderSpawnChance) {
                             clockExtenderSpawnedForMagicDefenceRef.current = true
                             const PLAYER_AVOID_ZONE = 80
+                            const BULLET_AVOID_ZONE = 50
                             let spawnX
                             let attempts = 0
                             do {
                                 spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                                 attempts++
-                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                                const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                                const hasBulletInPath = bulletsRef.current.some(bullet => {
+                                    const bulletCenterX = bullet.x
+                                    return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                                })
+                                const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                                    const missileCenterX = missile.x + missile.width / 2
+                                    return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                                })
+                                if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                            } while (spawnX === null && attempts < 30)
                             
-                            clockExtenderPowerupsRef.current.push({
-                                x: spawnX,
-                                y: -LIFE_POWERUP_SIZE,
-                                size: LIFE_POWERUP_SIZE
-                            })
+                            if (spawnX !== null) {
+                                clockExtenderPowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                            }
                         }
                     }
                 }
                 
                 // Check super weapon
-                if (superWeaponEndTime && !clockExtenderSpawnedForSuperWeaponRef.current) {
+                if (superWeaponEndTime && !clockExtenderSpawnedForSuperWeaponRef.current && !clockExtenderDisabledForSuperWeaponRef.current) {
                     const timeRemaining = superWeaponEndTime - now
                     if (timeRemaining <= CLOCK_EXTENDER_SPAWN_WINDOW_START && timeRemaining >= CLOCK_EXTENDER_SPAWN_WINDOW_END && !clockExtenderSpawned) {
                         if (Math.random() < clockExtenderSpawnChance) {
                             clockExtenderSpawnedForSuperWeaponRef.current = true
                             const PLAYER_AVOID_ZONE = 80
+                            const BULLET_AVOID_ZONE = 50
                             let spawnX
                             let attempts = 0
                             do {
                                 spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
                                 attempts++
-                            } while (Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE && attempts < 20)
+                                const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                                const hasBulletInPath = bulletsRef.current.some(bullet => {
+                                    const bulletCenterX = bullet.x
+                                    return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                                })
+                                const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                                    const missileCenterX = missile.x + missile.width / 2
+                                    return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                                })
+                                if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                            } while (spawnX === null && attempts < 30)
                             
-                            clockExtenderPowerupsRef.current.push({
-                                x: spawnX,
-                                y: -LIFE_POWERUP_SIZE,
-                                size: LIFE_POWERUP_SIZE
-                            })
+                            if (spawnX !== null) {
+                                clockExtenderPowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                            }
                         }
                     }
                 }
                 
                 // Reset spawn flags when powerups expire
-                if (!scoreMultiplierEndTime) clockExtenderSpawnedForScoreMultiplierRef.current = false
-                if (!magicDefenceEndTime) clockExtenderSpawnedForMagicDefenceRef.current = false
-                if (!superWeaponEndTime) clockExtenderSpawnedForSuperWeaponRef.current = false
+                if (!scoreMultiplierEndTime) {
+                    clockExtenderSpawnedForScoreMultiplierRef.current = false
+                    clockExtenderDisabledForScoreMultiplierRef.current = false
+                }
+                if (!magicDefenceEndTime) {
+                    clockExtenderSpawnedForMagicDefenceRef.current = false
+                    clockExtenderDisabledForMagicDefenceRef.current = false
+                }
+                if (!superWeaponEndTime) {
+                    clockExtenderSpawnedForSuperWeaponRef.current = false
+                    clockExtenderDisabledForSuperWeaponRef.current = false
+                }
 
                 // Update life powerups
                 lifePowerupsRef.current = lifePowerupsRef.current
@@ -1119,6 +1231,8 @@ function AliensGame() {
                             // Activate 3X score multiplier for 20 seconds
                             setScoreMultiplier(3)
                             setScoreMultiplierEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // 50% chance this powerup won't get a clock extender
+                            clockExtenderDisabledForScoreMultiplierRef.current = Math.random() < 0.5
                             // Powerup collect sound
                             if (soundEnabledRef.current) {
                                 createSound(500, 0.1, 'square', 0.15)
@@ -1145,6 +1259,8 @@ function AliensGame() {
                             // Activate magic defence for 20 seconds
                             setMagicDefenceActive(true)
                             setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // 50% chance this powerup won't get a clock extender
+                            clockExtenderDisabledForMagicDefenceRef.current = Math.random() < 0.5
                             // Powerup collect sound
                             if (soundEnabledRef.current) {
                                 createSound(600, 0.1, 'square', 0.15)
@@ -1171,6 +1287,8 @@ function AliensGame() {
                             // Activate super weapon for 20 seconds
                             setSuperWeaponActive(true)
                             setSuperWeaponEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            // 50% chance this powerup won't get a clock extender
+                            clockExtenderDisabledForSuperWeaponRef.current = Math.random() < 0.5
                             // Powerup collect sound
                             if (soundEnabledRef.current) {
                                 createSound(700, 0.1, 'square', 0.15)
@@ -1183,7 +1301,7 @@ function AliensGame() {
                     })
 
                 // Update clock extender powerups
-                const CLOCK_EXTENDER_SPEED = LIFE_POWERUP_SPEED * 2.2 // 2.2x faster than other powerups
+                const CLOCK_EXTENDER_SPEED = LIFE_POWERUP_SPEED * 2.2 * 1.15 // 2.53x faster than other powerups (2.2 * 1.15)
                 clockExtenderPowerupsRef.current = clockExtenderPowerupsRef.current
                     .map(powerup => ({ ...powerup, y: powerup.y + CLOCK_EXTENDER_SPEED }))
                     .filter(powerup => {
