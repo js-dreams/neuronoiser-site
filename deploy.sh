@@ -47,20 +47,19 @@ cp -r "$TEMP_DIST"/* . 2>/dev/null || true
 # Clean up temporary directory
 rm -rf "$TEMP_DIST"
 
-# Add only the built files (explicitly exclude node_modules, src, etc)
-git add -f CNAME 2>/dev/null || true
-git add -f index.html 2>/dev/null || true
-git add -f assets/ 2>/dev/null || true
-git add -f audio/ 2>/dev/null || true
-git add -f logos/ 2>/dev/null || true
-git add -f cassette.jpeg 2>/dev/null || true
-git add -f music.json 2>/dev/null || true
 # Explicitly remove any unwanted directories/files if they exist
 git rm -rf node_modules src dist .vite package.json package-lock.json vite.config.js tailwind.config.js postcss.config.js deploy.sh .gitignore 2>/dev/null || true
 
+# Add all files (they should all be from dist, so safe to add everything)
+git add -f .
+
 # Commit
 echo "💾 Committing changes..."
-git commit -m "Deploy to GitHub Pages - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+if git diff --cached --quiet; then
+    echo "No changes to commit"
+else
+    git commit -m "Deploy to GitHub Pages - $(date +'%Y-%m-%d %H:%M:%S')"
+fi
 
 # Push to gh-pages branch
 echo "🚢 Pushing to gh-pages branch..."
