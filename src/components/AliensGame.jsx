@@ -2299,7 +2299,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             if (isMobile) {
                 // On mobile, use viewport-relative positioning
                 // Canvas resolution matches viewport, so use reasonable fixed values
-                const fontSize = Math.max(14, canvas.width / 25) // Scale font with viewport width
+                const fontSize = Math.max(14, canvas.width / 25) * 0.8 // Scale font with viewport width, 80% for mobile
                 ctx.font = `${fontSize}px "Courier New", monospace`
                 const x = 10
                 const y1 = fontSize + 5
