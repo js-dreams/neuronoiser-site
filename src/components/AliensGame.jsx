@@ -3045,16 +3045,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 />
                 
                 {/* Mobile instructions */}
-                <div 
-                    className={`absolute bottom-4 left-0 right-0 z-10 text-center text-gray-500 text-xs font-mono bg-black/70 backdrop-blur-sm py-2 transition-opacity duration-500 ${
-                        gameState === 'playing' || gameState === 'gameover' ? 'opacity-0' : 'opacity-100'
-                    }`}
-                >
-                    <div>
-                        <p>Touch ship directly: Move and shoot</p>
-                        <p>Touch elsewhere: Move only</p>
+                {(gameState === 'menu') && (
+                    <div className="absolute bottom-4 left-0 right-0 z-10 text-center text-gray-500 text-xs font-mono bg-black/70 backdrop-blur-sm py-2">
+                        <div>
+                            <p>Touch ship directly: Move and shoot</p>
+                            <p>Touch elsewhere: Move only</p>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Help Dialog */}
                 {showHelpDialog && (
