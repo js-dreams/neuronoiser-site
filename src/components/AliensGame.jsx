@@ -393,6 +393,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 return
             }
 
+            // Try to play pending music (mobile only, after user interaction)
+            playMusicIfPending()
+
             const touch = e.touches[0]
             const coords = getCanvasCoordinates(touch.clientX, touch.clientY)
             touchRef.current = {
@@ -406,6 +409,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         const handleTouchMove = (e) => {
             e.preventDefault()
             if (touchRef.current.isTouching && gameStateRef.current.gameState === 'playing') {
+                // Try to play pending music (mobile only, after user interaction)
+                playMusicIfPending()
+
                 const touch = e.touches[0]
                 const coords = getCanvasCoordinates(touch.clientX, touch.clientY)
                 touchRef.current.x = coords.x
@@ -630,6 +636,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
     // Ref for volume transition interval
     const volumeTransitionRef = useRef(null)
+    
+    // Ref to track if music playback is pending (on mobile, waiting for user interaction)
+    const musicPlayPendingRef = useRef(false)
+
+    // Helper function to play music (called from user interaction handlers on mobile)
+    const playMusicIfPending = useCallback(() => {
+        if (musicPlayPendingRef.current && musicAudioRef.current && musicAudioRef.current.paused) {
+            const musicWasPausedInGame = localStorage.getItem('aliensGameMusicPaused') === 'true'
+            if (!musicWasPausedInGame) {
+                const targetVolume = soundEnabled ? 0.25 : 1.0
+                musicAudioRef.current.volume = targetVolume
+                const playPromise = musicAudioRef.current.play()
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        // Silently fail if autoplay is blocked (browser policy)
+                        console.error('Auto-play music on game start failed:', error)
+                    })
+                }
+                musicPlayPendingRef.current = false
+            }
+        }
+    }, [musicAudioRef, soundEnabled])
 
     // Helper function for gradual volume transition
     const transitionVolume = useCallback((targetVolume, duration = 2000) => {
@@ -721,27 +749,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     }
 
     // Play music when game starts, unless explicitly paused in-game
+    // On mobile, delay playback until after user interaction
     const gameStartedRef = useRef(false)
     useEffect(() => {
         if (gameState === 'playing' && !gameStartedRef.current) {
             gameStartedRef.current = true
             const musicWasPausedInGame = localStorage.getItem('aliensGameMusicPaused') === 'true'
             if (!musicWasPausedInGame && musicAudioRef.current && musicAudioRef.current.paused) {
-                // Set volume before playing (no transition, immediate)
-                const targetVolume = soundEnabled ? 0.25 : 1.0
-                musicAudioRef.current.volume = targetVolume
-                const playPromise = musicAudioRef.current.play()
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        // Silently fail if autoplay is blocked (browser policy)
-                        console.error('Auto-play music on game start failed:', error)
-                    })
+                if (isMobile) {
+                    // On mobile, mark music as pending to play after user interaction
+                    musicPlayPendingRef.current = true
+                } else {
+                    // On desktop, play immediately
+                    const targetVolume = soundEnabled ? 0.25 : 1.0
+                    musicAudioRef.current.volume = targetVolume
+                    const playPromise = musicAudioRef.current.play()
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            // Silently fail if autoplay is blocked (browser policy)
+                            console.error('Auto-play music on game start failed:', error)
+                        })
+                    }
                 }
             }
         } else if (gameState === 'menu' || gameState === 'gameover') {
             gameStartedRef.current = false
+            musicPlayPendingRef.current = false
         }
-    }, [gameState, musicAudioRef, soundEnabled])
+    }, [gameState, musicAudioRef, soundEnabled, isMobile])
 
     // Handle navigation back to home with analytics
     const handleBackToHome = () => {
