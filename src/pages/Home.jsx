@@ -1,6 +1,7 @@
 import Hero from '../components/Hero'
 import StreamingLinks from '../components/StreamingLinks'
 import Bio from '../components/Bio'
+import GameSection from '../components/GameSection'
 import Footer from '../components/Footer'
 import AnimatedSection from '../components/AnimatedSection'
 import MusicPlayerUI from '../components/MusicPlayerUI'
@@ -16,9 +17,12 @@ function Home() {
             </AnimatedSection>
             <StreamingLinks />
             <AnimatedSection delay={900}>
+                <GameSection />
+            </AnimatedSection>
+            <AnimatedSection delay={1150}>
                 <Bio />
             </AnimatedSection>
-            <AnimatedSection delay={1150} animationType="animate-slide-in-bottom">
+            <AnimatedSection delay={1300} animationType="animate-slide-in-bottom">
                 <Footer />
             </AnimatedSection>
         </div>

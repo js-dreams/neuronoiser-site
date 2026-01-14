@@ -301,7 +301,9 @@ function AliensGame() {
         nextScoreBonusSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
         nextMagicDefenceSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
         nextSuperWeaponSpawnFrameRef.current = Math.floor(Math.random() * LEVEL_DURATION_FRAMES)
-    }, [])
+        // Reset previous high score ref to current high score at game start
+        previousHighScoreRef.current = highScore
+    }, [highScore])
 
     const gameOver = useCallback(() => {
         setGameState('gameover')
@@ -533,7 +535,6 @@ function AliensGame() {
     useEffect(() => {
         if (gameState === 'playing' && score > highScore) {
             setHighScore(score)
-            previousHighScoreRef.current = score
             localStorage.setItem('aliensHighScore', score.toString())
         }
     }, [score, highScore, gameState])
