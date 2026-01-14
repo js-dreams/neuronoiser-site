@@ -2415,15 +2415,32 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Back button for mobile */}
                 <button
                     onClick={handleBackToHome}
-                    className="absolute top-4 right-4 z-20 text-neon-cyan font-mono hover:text-white transition-colors text-lg bg-black/70 px-3 py-1 rounded backdrop-blur-sm"
+                    className="absolute top-2 right-4 z-20 text-neon-cyan font-mono hover:text-white transition-colors text-lg bg-black/70 px-3 py-1 rounded backdrop-blur-sm"
                 >
                     ← Back
                 </button>
 
+                {/* Share button for mobile (only show if Web Share API is supported) */}
+                {navigator.share && (
+                    <button
+                        onClick={handleShare}
+                        className="absolute top-[44px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                        aria-label="Share game"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                    </button>
+                )}
+
                 {/* Help button for mobile */}
                 <button
                     onClick={() => setShowHelpDialog(true)}
-                    className="absolute top-14 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[80px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label="Show help"
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2436,7 +2453,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Sound toggle button for mobile */}
                 <button
                     onClick={toggleSound}
-                    className="absolute top-24 right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[116px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
                 >
                     {soundEnabled ? (
@@ -2456,7 +2473,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Music toggle button for mobile */}
                 <button
                     onClick={handleMusicToggle}
-                    className="absolute top-[136px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
+                    className="absolute top-[152px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
                     aria-label={musicIsPlaying ? 'Pause music' : 'Play music'}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2465,23 +2482,6 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         <circle cx="18" cy="16" r="3"></circle>
                     </svg>
                 </button>
-
-                {/* Share button for mobile (only show if Web Share API is supported) */}
-                {navigator.share && (
-                    <button
-                        onClick={handleShare}
-                        className="absolute top-[188px] right-4 z-20 text-neon-cyan hover:text-white transition-colors bg-black/70 p-2 rounded backdrop-blur-sm"
-                        aria-label="Share game"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="18" cy="5" r="3"></circle>
-                            <circle cx="6" cy="12" r="3"></circle>
-                            <circle cx="18" cy="19" r="3"></circle>
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                        </svg>
-                    </button>
-                )}
                 
                 <canvas
                     ref={canvasRef}
