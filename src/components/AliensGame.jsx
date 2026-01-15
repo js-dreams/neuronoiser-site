@@ -129,6 +129,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const keysRef = useRef({})
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
+    const lastFrameTimeRef = useRef(null) // Track last frame time for delta time calculation (mobile fix)
     const touchRef = useRef({ x: null, y: null, isTouching: false, shootPressed: false })
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
@@ -374,6 +375,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         bossShieldHitsRef.current = 0
         nextBossPowerupSpawnFrameRef.current = null
         frameCountRef.current = 0
+        lastFrameTimeRef.current = null // Reset delta time tracking
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
         // Set first powerup spawn at a random time within the first level (0 to LEVEL_DURATION_FRAMES)
@@ -1264,6 +1266,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         const ctx = canvas.getContext('2d')
         
         const gameLoop = () => {
+            // Calculate delta time for frame-rate independent movement (fixes mobile throttling issue)
+            const currentTime = performance.now()
+            const deltaTime = lastFrameTimeRef.current !== null 
+                ? Math.min((currentTime - lastFrameTimeRef.current) / 16.67, 2.0) // Normalize to 60fps, cap at 2x
+                : 1.0 // First frame
+            lastFrameTimeRef.current = currentTime
+            
             // Clear canvas
             ctx.fillStyle = '#000011'
             if (isMobile) {
@@ -1290,7 +1299,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             // Draw stars
             ctx.fillStyle = '#ffffff'
             starsRef.current.forEach(star => {
-                star.y += star.speed
+                star.y += star.speed * deltaTime // Frame-rate independent
                 if (star.y > CANVAS_HEIGHT) {
                     star.y = 0
                     star.x = Math.random() * CANVAS_WIDTH
@@ -1390,9 +1399,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const dy = targetY - player.y
                     const distance = Math.sqrt(dx * dx + dy * dy)
                     
-                    if (distance > PLAYER_SPEED) {
-                        player.x += (dx / distance) * PLAYER_SPEED
-                        player.y += (dy / distance) * PLAYER_SPEED
+                    if (distance > PLAYER_SPEED * deltaTime) {
+                        player.x += (dx / distance) * PLAYER_SPEED * deltaTime
+                        player.y += (dy / distance) * PLAYER_SPEED * deltaTime
                     } else {
                         player.x = targetX
                         player.y = targetY
@@ -1400,16 +1409,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 } else {
                     // Keyboard controls
                     if (keysRef.current['ArrowLeft'] || keysRef.current['a'] || keysRef.current['A']) {
-                        player.x = Math.max(20, player.x - PLAYER_SPEED)
+                        player.x = Math.max(20, player.x - PLAYER_SPEED * deltaTime)
                     }
                     if (keysRef.current['ArrowRight'] || keysRef.current['d'] || keysRef.current['D']) {
-                        player.x = Math.min(CANVAS_WIDTH - 20, player.x + PLAYER_SPEED)
+                        player.x = Math.min(CANVAS_WIDTH - 20, player.x + PLAYER_SPEED * deltaTime)
                     }
                     if (keysRef.current['ArrowUp'] || keysRef.current['w'] || keysRef.current['W']) {
-                        player.y = Math.max(CANVAS_HEIGHT / 2, player.y - PLAYER_SPEED)
+                        player.y = Math.max(CANVAS_HEIGHT / 2, player.y - PLAYER_SPEED * deltaTime)
                     }
                     if (keysRef.current['ArrowDown'] || keysRef.current['s'] || keysRef.current['S']) {
-                        player.y = Math.min(CANVAS_HEIGHT - 20, player.y + PLAYER_SPEED)
+                        player.y = Math.min(CANVAS_HEIGHT - 20, player.y + PLAYER_SPEED * deltaTime)
                     }
                 }
 
@@ -1486,7 +1495,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update bullets
                 bulletsRef.current = bulletsRef.current
-                    .map(bullet => ({ ...bullet, y: bullet.y - BULLET_SPEED }))
+                    .map(bullet => ({ ...bullet, y: bullet.y - BULLET_SPEED * deltaTime }))
                     .filter(bullet => bullet.y > -bullet.height)
 
                 // Update homing missiles
@@ -1561,8 +1570,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 
                                 if (distance > 0) {
                                     // Move toward boss with homing behavior
-                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED
-                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED
+                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
                                     
                                     return {
                                         ...missile,
@@ -1586,8 +1595,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 
                                 if (distance > 0) {
                                     // Move toward target with homing behavior
-                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED
-                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED
+                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
                                     
                                     return {
                                         ...missile,
@@ -1615,7 +1624,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     homingMissilesRef.current = homingMissilesRef.current
                         .map(missile => ({
                             ...missile,
-                            y: missile.y - HOMING_MISSILE_SPEED
+                            y: missile.y - HOMING_MISSILE_SPEED * deltaTime
                         }))
                         .filter(missile => missile.y > -missile.height)
                 }
@@ -1624,8 +1633,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 enemyBulletsRef.current = enemyBulletsRef.current
                     .map(bullet => ({
                         ...bullet,
-                        x: bullet.x + bullet.vx,
-                        y: bullet.y + bullet.vy
+                        x: bullet.x + bullet.vx * deltaTime,
+                        y: bullet.y + bullet.vy * deltaTime
                     }))
                     .filter(bullet => {
                         // Remove if off screen
@@ -1988,7 +1997,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update life powerups
                 lifePowerupsRef.current = lifePowerupsRef.current
-                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED * deltaTime }))
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
@@ -2011,7 +2020,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update 3X score bonus powerups
                 scoreBonusPowerupsRef.current = scoreBonusPowerupsRef.current
-                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED * deltaTime }))
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
@@ -2059,7 +2068,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update magic defence powerups
                 magicDefencePowerupsRef.current = magicDefencePowerupsRef.current
-                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED * deltaTime }))
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
@@ -2108,7 +2117,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update super weapon powerups
                 superWeaponPowerupsRef.current = superWeaponPowerupsRef.current
-                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED }))
+                    .map(powerup => ({ ...powerup, y: powerup.y + LIFE_POWERUP_SPEED * deltaTime }))
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
@@ -2157,7 +2166,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Update clock extender powerups
                 const CLOCK_EXTENDER_SPEED = LIFE_POWERUP_SPEED * 2.2 * 1.15 // 2.53x faster than other powerups (2.2 * 1.15)
                 clockExtenderPowerupsRef.current = clockExtenderPowerupsRef.current
-                    .map(powerup => ({ ...powerup, y: powerup.y + CLOCK_EXTENDER_SPEED }))
+                    .map(powerup => ({ ...powerup, y: powerup.y + CLOCK_EXTENDER_SPEED * deltaTime }))
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
@@ -2198,10 +2207,10 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 enemiesRef.current = enemiesRef.current
                     .map(enemy => {
                         // Move vertically
-                        let newY = enemy.y + currentEnemySpeed
+                        let newY = enemy.y + currentEnemySpeed * deltaTime
                         
                         // Move horizontally and handle boundary bouncing
-                        let newX = enemy.x + (enemy.vx || 0)
+                        let newX = enemy.x + (enemy.vx || 0) * deltaTime
                         let newVx = enemy.vx || 0
                         
                         // Bounce off left and right edges
@@ -2304,8 +2313,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const BOSS_SIZE = 120
                     
                     // Boss arrives from above, then moves around
-                    let newX = boss.x + boss.vx
-                    let newY = boss.y + boss.vy
+                    let newX = boss.x + boss.vx * deltaTime
+                    let newY = boss.y + boss.vy * deltaTime
                     
                     // If boss is still entering from above (y < 50), continue moving down
                     if (boss.y < 50 && boss.vy > 0) {
