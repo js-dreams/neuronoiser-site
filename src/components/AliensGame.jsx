@@ -130,6 +130,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
     const lastFrameTimeRef = useRef(null) // Track last frame time for delta time calculation (mobile fix)
+    const lastPlayerShotTimeRef = useRef(null) // Track last player shot time for fire rate control (mobile fix)
     const touchRef = useRef({ x: null, y: null, isTouching: false, shootPressed: false })
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
@@ -376,6 +377,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         nextBossPowerupSpawnFrameRef.current = null
         frameCountRef.current = 0
         lastFrameTimeRef.current = null // Reset delta time tracking
+        lastPlayerShotTimeRef.current = null // Reset player shot timing
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
         // Set first powerup spawn at a random time within the first level (0 to LEVEL_DURATION_FRAMES)
@@ -1425,9 +1427,15 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Shooting
                 const shouldShoot = keysRef.current[' '] || touchRef.current.shootPressed
                 if (shouldShoot) {
+                    const currentTime = performance.now()
                     if (superWeaponActive) {
                         // Super weapon: fire homing missiles (never more than number of enemies, max 3, and only for enemies not already targeted)
-                        if (frameCountRef.current % 15 === 0) {
+                        // Time-based fire rate: every 250ms (equivalent to every 15 frames at 60fps)
+                        const superWeaponFireRate = 250 // milliseconds
+                        const canShoot = lastPlayerShotTimeRef.current === null || 
+                                       (currentTime - lastPlayerShotTimeRef.current) >= superWeaponFireRate
+                        if (canShoot) {
+                            lastPlayerShotTimeRef.current = currentTime
                             // Check if boss is already targeted
                             const bossTargeted = homingMissilesRef.current.some(m => m.targetBoss === true)
                             
@@ -1479,8 +1487,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             }
                         }
                     } else {
-                        // Regular shooting
-                        if (frameCountRef.current % 10 === 0) {
+                        // Regular shooting - time-based fire rate (every ~167ms = every 10 frames at 60fps)
+                        const regularFireRate = 167 // milliseconds
+                        const canShoot = lastPlayerShotTimeRef.current === null || 
+                                       (currentTime - lastPlayerShotTimeRef.current) >= regularFireRate
+                        if (canShoot) {
+                            lastPlayerShotTimeRef.current = currentTime
                             bulletsRef.current.push({
                                 x: player.x,
                                 y: player.y - 30,
