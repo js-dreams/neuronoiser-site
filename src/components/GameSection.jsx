@@ -5,11 +5,11 @@ const SECTION_HEADING_CLASS = "text-l md:text-4xl font-mono font-semibold text-n
 function GameSection() {
     return (
         <section id="game-section" className="space-y-6">
-            <Link to="/aliens" className="block space-y-6">
+            <Link to="/aliens" className="block space-y-6 border-2 border-transparent rounded-xl transition-all duration-300 ease-in-out hover:translate-y-[-4px] hover:scale-[1.02] hover:shadow-[0_10px_20px_rgba(0,255,255,0.4)] hover:border-neon-cyan">
                 <h2 className={SECTION_HEADING_CLASS}>
-                    / {'{'} Play Aliens 🎮 {'}'}
+                    / {'{'} 🎮 Play "Hostile Space" {'}'}
                 </h2>
-                <div className="bg-dark-gray rounded-xl shadow-inner shadow-dark-gray/50 border-2 border-transparent transition-all duration-300 ease-in-out hover:translate-y-[-4px] hover:scale-[1.02] hover:shadow-[0_10px_20px_rgba(0,255,255,0.4)] hover:border-neon-cyan">
+                <div className="bg-dark-gray rounded-xl shadow-inner shadow-dark-gray/50 border-2 border-transparent transition-all duration-300 ease-in-out">
                     <section className="flex items-center justify-center text-slate-800 dark:bg-slate-900 dark:text-slate-100">
                         <article className="mx-auto w-full text-xl text-neon-cyan rounded-2xl border-slate-200/70 p-6 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-800/60">
                             <p className="mb-4 leading-relaxed">

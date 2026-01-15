@@ -978,8 +978,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'Aliens Game @ neuronoiser.com',
-                    text: 'Check out this retro space shooter game! Play Aliens - an 80s-style space shooter with powerups, 10 levels, and increasing difficulty.',
+                    title: 'Hostile Space @ neuronoiser.com',
+                    text: 'Check out this retro space shooter game! Play Hostile Space - an 80s-style space shooter with powerups, 10 levels, and increasing difficulty.',
                     url: window.location.href
                 })
             } catch (error) {
@@ -3646,9 +3646,15 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const fontScale = scaleX
                     ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
                     ctx.textAlign = 'center'
-                    ctx.fillText('ALIEN INVADERS', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80) * scaleY)
+                    ctx.fillText('HOSTILE SPACE', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80) * scaleY)
+                    
+                    // Music credit below title (half font size, lighter navy blue)
+                    ctx.font = `${26 * fontScale}px "Courier New", monospace`
+                    ctx.fillStyle = '#4169E1' // Lighter navy blue (royal blue)
+                    ctx.fillText('Music by neuronoizer', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80 + 30) * scaleY)
                     
                     ctx.font = `${24 * fontScale}px "Courier New", monospace`
+                    ctx.fillStyle = '#FFFFFF' // Reset to white
                     ctx.fillText('TOUCH TO START', canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
                     
                     ctx.font = `${14 * fontScale}px "Courier New", monospace`
@@ -3658,9 +3664,15 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 } else {
                     ctx.font = 'bold 48px "Courier New", monospace'
                     ctx.textAlign = 'center'
-                    ctx.fillText('ALIEN INVADERS', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80)
+                    ctx.fillText('HOSTILE SPACE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80)
+                    
+                    // Music credit below title (half font size, lighter navy blue)
+                    ctx.font = '26px "Courier New", monospace'
+                    ctx.fillStyle = '#4169E1' // Lighter navy blue (royal blue)
+                    ctx.fillText('Music by neuronoizer', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80 + 30)
                     
                     ctx.font = '24px "Courier New", monospace'
+                    ctx.fillStyle = '#FFFFFF' // Reset to white
                     ctx.fillText('PRESS SPACE TO START', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20)
                     
                     ctx.font = '16px "Courier New", monospace'
@@ -3766,7 +3778,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         onClick={handleBackToHome}
                         className="text-neon-cyan font-mono hover:text-white transition-colors text-lg bg-black/70 px-4 py-2 rounded border border-neon-cyan/50"
                     >
-                        ← Back to Home
+                        ← neuronoiser.com
                     </button>
                 </div>
             </div>
@@ -3780,9 +3792,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 {/* Back button for mobile */}
                 <button
                     onClick={handleBackToHome}
-                    className="absolute top-2 right-4 z-20 text-neon-cyan font-mono hover:text-white transition-colors text-lg bg-black/70 px-3 py-1 rounded backdrop-blur-sm"
+                    className="absolute top-2 right-4 z-20 text-neon-cyan hover:text-white transition-colors p-2"
+                    aria-label="Back to home"
                 >
-                    ← Back
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
                 </button>
 
                 {/* Share button for mobile (only show if Web Share API is supported) */}
@@ -3992,7 +4008,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     onClick={handleBackToHome}
                     className="text-neon-cyan font-mono hover:text-white transition-colors text-lg"
                 >
-                    ← Back to Home
+                    ← neuronoiser.com
                 </button>
                 
                 <div className="flex items-center gap-2">
