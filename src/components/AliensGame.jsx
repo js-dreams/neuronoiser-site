@@ -140,6 +140,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const nextSuperWeaponSpawnFrameRef = useRef(null)
     const fireworksRef = useRef([])
     const bossExplosionRef = useRef([]) // Boss explosion particles
+    const enemyExplosionsRef = useRef([]) // Array of enemy explosion particle arrays: [{ particles: [...], startTime: number }, ...]
+    const powerupExplosionsRef = useRef([]) // Array of powerup explosion particle arrays: [{ particles: [...], startTime: number }, ...]
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
     const clockExtenderSpawnedForScoreMultiplierRef = useRef(false)
@@ -335,6 +337,75 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         return particles
     }, [])
 
+    // Create small enemy explosion particles
+    const createEnemyExplosion = useCallback((centerX, centerY) => {
+        const colors = ['#FF4400', '#FF8800', '#FFAA00', '#FF0000', '#FFFF00'] // Fire/explosion colors
+        const particles = []
+        const particleCount = 15 // Small explosion, fewer particles
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 * i) / particleCount + (Math.random() * 0.5 - 0.25) // Slight random variation
+            const speed = 2 + Math.random() * 4 // Slower than boss explosion
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.03 + Math.random() * 0.04, // Faster decay for shorter effect
+                color: color,
+                size: 2 + Math.random() * 3 // Smaller particles
+            })
+        }
+        return particles
+    }, [])
+
+    // Create fancy skull ship (mega enemy) explosion particles
+    const createMegaEnemyExplosion = useCallback((centerX, centerY) => {
+        const colors = ['#FF0000', '#FF4400', '#FF8800', '#FFAA00', '#FFFF00', '#FF6600'] // Fire/explosion colors with emphasis on red
+        const particles = []
+        const particleCount = 30 // More particles for a fancier explosion
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 * i) / particleCount + (Math.random() * 0.6 - 0.3) // More variation
+            const speed = 2.5 + Math.random() * 5.5 // Slightly faster than regular enemies
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.025 + Math.random() * 0.035, // Slightly longer lasting
+                color: color,
+                size: 2.5 + Math.random() * 4 // Slightly larger particles
+            })
+        }
+        return particles
+    }, [])
+
+    // Create powerup explosion particles (dark/purple colors for disappointment)
+    const createPowerupExplosion = useCallback((centerX, centerY) => {
+        const colors = ['#8B008B', '#4B0082', '#800080', '#9932CC', '#A020F0', '#6A5ACD'] // Dark purple/violet colors
+        const particles = []
+        const particleCount = 12 // Small disappointment explosion
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 * i) / particleCount + (Math.random() * 0.5 - 0.25) // Slight random variation
+            const speed = 1.5 + Math.random() * 3 // Slower, more subdued
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.04 + Math.random() * 0.05, // Faster decay for shorter effect
+                color: color,
+                size: 2 + Math.random() * 3 // Smaller particles
+            })
+        }
+        return particles
+    }, [])
+
     const startGame = useCallback(() => {
         // Clear any saved game state
         onClearGameState()
@@ -347,6 +418,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setBossExplosionStartTime(null)
         fireworksRef.current = []
         bossExplosionRef.current = []
+        enemyExplosionsRef.current = []
+        powerupExplosionsRef.current = []
         hasCelebratedThisGameRef.current = false
         clockExtenderSpawnedForScoreMultiplierRef.current = false
         clockExtenderSpawnedForMagicDefenceRef.current = false
@@ -2575,12 +2648,70 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                     if (hitEnemy !== -1) {
                         const destroyedEnemy = enemiesRef.current[hitEnemy]
+                        const enemyCenterX = destroyedEnemy.x + destroyedEnemy.width / 2
+                        const enemyCenterY = destroyedEnemy.y + destroyedEnemy.height / 2
+                        // Create explosion at enemy center (fancy for mega enemies)
+                        enemyExplosionsRef.current.push({
+                            particles: destroyedEnemy.isMega 
+                                ? createMegaEnemyExplosion(enemyCenterX, enemyCenterY)
+                                : createEnemyExplosion(enemyCenterX, enemyCenterY),
+                            startTime: Date.now()
+                        })
                         enemiesRef.current.splice(hitEnemy, 1)
                         // Mega enemies give 500 points, regular enemies give 100
                         const basePoints = destroyedEnemy.isMega ? 500 : 100
                         setScore(prev => prev + (basePoints * scoreMultiplier))
-                        // Enemy hit sound
-                        if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
+                        // Enemy explosion sound (more satisfying for mega enemies)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    if (destroyedEnemy.isMega) {
+                                        // Fancy skull ship explosion: two-part satisfying sound
+                                        // Low frequency boom
+                                        const osc1 = ctx.createOscillator()
+                                        const gain1 = ctx.createGain()
+                                        osc1.connect(gain1)
+                                        gain1.connect(ctx.destination)
+                                        osc1.type = 'sawtooth'
+                                        osc1.frequency.setValueAtTime(120, ctx.currentTime)
+                                        osc1.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25)
+                                        gain1.gain.setValueAtTime(0.2, ctx.currentTime)
+                                        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                        osc1.start(ctx.currentTime)
+                                        osc1.stop(ctx.currentTime + 0.35)
+                                        
+                                        // High frequency crack (satisfying pop)
+                                        setTimeout(() => {
+                                            const osc2 = ctx.createOscillator()
+                                            const gain2 = ctx.createGain()
+                                            osc2.connect(gain2)
+                                            gain2.connect(ctx.destination)
+                                            osc2.type = 'square'
+                                            osc2.frequency.setValueAtTime(350, ctx.currentTime)
+                                            osc2.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.2)
+                                            gain2.gain.setValueAtTime(0.15, ctx.currentTime)
+                                            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+                                            osc2.start(ctx.currentTime)
+                                            osc2.stop(ctx.currentTime + 0.3)
+                                        }, 80)
+                                    } else {
+                                        // Regular enemy: simple explosion sound
+                                        const osc1 = ctx.createOscillator()
+                                        const gain1 = ctx.createGain()
+                                        osc1.connect(gain1)
+                                        gain1.connect(ctx.destination)
+                                        osc1.type = 'sawtooth'
+                                        osc1.frequency.setValueAtTime(150, ctx.currentTime)
+                                        osc1.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15)
+                                        gain1.gain.setValueAtTime(0.15, ctx.currentTime)
+                                        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+                                        osc1.start(ctx.currentTime)
+                                        osc1.stop(ctx.currentTime + 0.2)
+                                    }
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -2694,6 +2825,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         const enemyCenterY = destroyedEnemy.y + destroyedEnemy.height / 2
                         const BLAST_RADIUS = 60 // Radius for blast effect
                         
+                        // Create explosion at enemy center (fancy for mega enemies)
+                        enemyExplosionsRef.current.push({
+                            particles: destroyedEnemy.isMega 
+                                ? createMegaEnemyExplosion(enemyCenterX, enemyCenterY)
+                                : createEnemyExplosion(enemyCenterX, enemyCenterY),
+                            startTime: Date.now()
+                        })
+                        
                         // Mark this missile for removal
                         missilesToRemove.add(missileIndex)
                         
@@ -2720,8 +2859,57 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         // Mega enemies give 500 points, regular enemies give 100
                         const basePoints = destroyedEnemy.isMega ? 500 : 100
                         setScore(prev => prev + (basePoints * scoreMultiplier))
-                        // Enemy hit sound
-                        if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
+                        // Enemy explosion sound (more satisfying for mega enemies)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    if (destroyedEnemy.isMega) {
+                                        // Fancy skull ship explosion: two-part satisfying sound
+                                        // Low frequency boom
+                                        const osc1 = ctx.createOscillator()
+                                        const gain1 = ctx.createGain()
+                                        osc1.connect(gain1)
+                                        gain1.connect(ctx.destination)
+                                        osc1.type = 'sawtooth'
+                                        osc1.frequency.setValueAtTime(120, ctx.currentTime)
+                                        osc1.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25)
+                                        gain1.gain.setValueAtTime(0.2, ctx.currentTime)
+                                        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                        osc1.start(ctx.currentTime)
+                                        osc1.stop(ctx.currentTime + 0.35)
+                                        
+                                        // High frequency crack (satisfying pop)
+                                        setTimeout(() => {
+                                            const osc2 = ctx.createOscillator()
+                                            const gain2 = ctx.createGain()
+                                            osc2.connect(gain2)
+                                            gain2.connect(ctx.destination)
+                                            osc2.type = 'square'
+                                            osc2.frequency.setValueAtTime(350, ctx.currentTime)
+                                            osc2.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.2)
+                                            gain2.gain.setValueAtTime(0.15, ctx.currentTime)
+                                            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+                                            osc2.start(ctx.currentTime)
+                                            osc2.stop(ctx.currentTime + 0.3)
+                                        }, 80)
+                                    } else {
+                                        // Regular enemy: simple explosion sound
+                                        const osc1 = ctx.createOscillator()
+                                        const gain1 = ctx.createGain()
+                                        osc1.connect(gain1)
+                                        gain1.connect(ctx.destination)
+                                        osc1.type = 'sawtooth'
+                                        osc1.frequency.setValueAtTime(150, ctx.currentTime)
+                                        osc1.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15)
+                                        gain1.gain.setValueAtTime(0.15, ctx.currentTime)
+                                        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+                                        osc1.start(ctx.currentTime)
+                                        osc1.stop(ctx.currentTime + 0.2)
+                                    }
+                                } catch (e) {}
+                            }
+                        }
                     }
                 })
                 
@@ -2748,7 +2936,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
 
                     if (hitLifePowerup !== -1) {
+                        const destroyedPowerup = lifePowerupsRef.current[hitLifePowerup]
+                        const powerupCenterX = destroyedPowerup.x
+                        const powerupCenterY = destroyedPowerup.y
+                        // Create disappointment explosion at powerup center
+                        powerupExplosionsRef.current.push({
+                            particles: createPowerupExplosion(powerupCenterX, powerupCenterY),
+                            startTime: Date.now()
+                        })
                         lifePowerupsRef.current.splice(hitLifePowerup, 1)
+                        // Disappointment sound (descending sad tone)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const osc = ctx.createOscillator()
+                                    const gain = ctx.createGain()
+                                    osc.connect(gain)
+                                    gain.connect(ctx.destination)
+                                    osc.type = 'sawtooth'
+                                    osc.frequency.setValueAtTime(300, ctx.currentTime)
+                                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3)
+                                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                    osc.start(ctx.currentTime)
+                                    osc.stop(ctx.currentTime + 0.35)
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -2762,7 +2977,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
 
                     if (hitScoreBonusPowerup !== -1) {
+                        const destroyedPowerup = scoreBonusPowerupsRef.current[hitScoreBonusPowerup]
+                        const powerupCenterX = destroyedPowerup.x
+                        const powerupCenterY = destroyedPowerup.y
+                        // Create disappointment explosion at powerup center
+                        powerupExplosionsRef.current.push({
+                            particles: createPowerupExplosion(powerupCenterX, powerupCenterY),
+                            startTime: Date.now()
+                        })
                         scoreBonusPowerupsRef.current.splice(hitScoreBonusPowerup, 1)
+                        // Disappointment sound (descending sad tone)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const osc = ctx.createOscillator()
+                                    const gain = ctx.createGain()
+                                    osc.connect(gain)
+                                    gain.connect(ctx.destination)
+                                    osc.type = 'sawtooth'
+                                    osc.frequency.setValueAtTime(300, ctx.currentTime)
+                                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3)
+                                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                    osc.start(ctx.currentTime)
+                                    osc.stop(ctx.currentTime + 0.35)
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -2776,7 +3018,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
 
                     if (hitMagicDefencePowerup !== -1) {
+                        const destroyedPowerup = magicDefencePowerupsRef.current[hitMagicDefencePowerup]
+                        const powerupCenterX = destroyedPowerup.x
+                        const powerupCenterY = destroyedPowerup.y
+                        // Create disappointment explosion at powerup center
+                        powerupExplosionsRef.current.push({
+                            particles: createPowerupExplosion(powerupCenterX, powerupCenterY),
+                            startTime: Date.now()
+                        })
                         magicDefencePowerupsRef.current.splice(hitMagicDefencePowerup, 1)
+                        // Disappointment sound (descending sad tone)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const osc = ctx.createOscillator()
+                                    const gain = ctx.createGain()
+                                    osc.connect(gain)
+                                    gain.connect(ctx.destination)
+                                    osc.type = 'sawtooth'
+                                    osc.frequency.setValueAtTime(300, ctx.currentTime)
+                                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3)
+                                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                    osc.start(ctx.currentTime)
+                                    osc.stop(ctx.currentTime + 0.35)
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -2790,7 +3059,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
 
                     if (hitSuperWeaponPowerup !== -1) {
+                        const destroyedPowerup = superWeaponPowerupsRef.current[hitSuperWeaponPowerup]
+                        const powerupCenterX = destroyedPowerup.x
+                        const powerupCenterY = destroyedPowerup.y
+                        // Create disappointment explosion at powerup center
+                        powerupExplosionsRef.current.push({
+                            particles: createPowerupExplosion(powerupCenterX, powerupCenterY),
+                            startTime: Date.now()
+                        })
                         superWeaponPowerupsRef.current.splice(hitSuperWeaponPowerup, 1)
+                        // Disappointment sound (descending sad tone)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const osc = ctx.createOscillator()
+                                    const gain = ctx.createGain()
+                                    osc.connect(gain)
+                                    gain.connect(ctx.destination)
+                                    osc.type = 'sawtooth'
+                                    osc.frequency.setValueAtTime(300, ctx.currentTime)
+                                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3)
+                                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                    osc.start(ctx.currentTime)
+                                    osc.stop(ctx.currentTime + 0.35)
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -2804,7 +3100,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
 
                     if (hitClockExtenderPowerup !== -1) {
+                        const destroyedPowerup = clockExtenderPowerupsRef.current[hitClockExtenderPowerup]
+                        const powerupCenterX = destroyedPowerup.x
+                        const powerupCenterY = destroyedPowerup.y
+                        // Create disappointment explosion at powerup center
+                        powerupExplosionsRef.current.push({
+                            particles: createPowerupExplosion(powerupCenterX, powerupCenterY),
+                            startTime: Date.now()
+                        })
                         clockExtenderPowerupsRef.current.splice(hitClockExtenderPowerup, 1)
+                        // Disappointment sound (descending sad tone)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const osc = ctx.createOscillator()
+                                    const gain = ctx.createGain()
+                                    osc.connect(gain)
+                                    gain.connect(ctx.destination)
+                                    osc.type = 'sawtooth'
+                                    osc.frequency.setValueAtTime(300, ctx.currentTime)
+                                    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.3)
+                                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
+                                    osc.start(ctx.currentTime)
+                                    osc.stop(ctx.currentTime + 0.35)
+                                } catch (e) {}
+                            }
+                        }
                         return false
                     }
 
@@ -3421,10 +3744,80 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 })
             }
 
+            // Update and draw enemy explosions
+            enemyExplosionsRef.current = enemyExplosionsRef.current
+                .map(explosion => {
+                    // Update particles for this explosion
+                    const updatedParticles = explosion.particles
+                        .map(particle => ({
+                            ...particle,
+                            x: particle.x + particle.vx * deltaTime,
+                            y: particle.y + particle.vy * deltaTime,
+                            vy: particle.vy + 0.1 * deltaTime, // slight gravity
+                            life: particle.life - particle.decay
+                        }))
+                        .filter(particle => particle.life > 0)
+                    
+                    // Return explosion if it still has particles, otherwise null (will be filtered out)
+                    return updatedParticles.length > 0 ? { ...explosion, particles: updatedParticles } : null
+                })
+                .filter(explosion => explosion !== null)
+
+            // Draw enemy explosions (in logical coordinates, before context restore)
+            enemyExplosionsRef.current.forEach(explosion => {
+                explosion.particles.forEach(particle => {
+                    ctx.save()
+                    ctx.globalAlpha = particle.life
+                    ctx.fillStyle = particle.color
+                    ctx.shadowBlur = 8
+                    ctx.shadowColor = particle.color
+                    ctx.beginPath()
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+                    ctx.restore()
+                })
+            })
+
+            // Update and draw powerup explosions
+            powerupExplosionsRef.current = powerupExplosionsRef.current
+                .map(explosion => {
+                    // Update particles for this explosion
+                    const updatedParticles = explosion.particles
+                        .map(particle => ({
+                            ...particle,
+                            x: particle.x + particle.vx * deltaTime,
+                            y: particle.y + particle.vy * deltaTime,
+                            vy: particle.vy + 0.08 * deltaTime, // slight gravity
+                            life: particle.life - particle.decay
+                        }))
+                        .filter(particle => particle.life > 0)
+                    
+                    // Return explosion if it still has particles, otherwise null (will be filtered out)
+                    return updatedParticles.length > 0 ? { ...explosion, particles: updatedParticles } : null
+                })
+                .filter(explosion => explosion !== null)
+
+            // Draw powerup explosions (in logical coordinates, before context restore)
+            powerupExplosionsRef.current.forEach(explosion => {
+                explosion.particles.forEach(particle => {
+                    ctx.save()
+                    ctx.globalAlpha = particle.life
+                    ctx.fillStyle = particle.color
+                    ctx.shadowBlur = 6
+                    ctx.shadowColor = particle.color
+                    ctx.beginPath()
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+                    ctx.restore()
+                })
+            })
+
             // Update and draw boss explosion
             if (bossExplosionStartTime) {
                 const explosionTime = (Date.now() - bossExplosionStartTime) / 1000 // seconds
-                
+
                 // Update explosion particles
                 bossExplosionRef.current = bossExplosionRef.current
                     .map(particle => ({
@@ -3435,7 +3828,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         life: particle.life - particle.decay
                     }))
                     .filter(particle => particle.life > 0)
-                
+
                 // Draw explosion particles (in logical coordinates, before context restore)
                 if (bossExplosionRef.current.length > 0) {
                     bossExplosionRef.current.forEach(particle => {
@@ -3780,7 +4173,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, victory, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, isVictory, gameOverWait, createFireworks, createBossExplosion, bossExplosionStartTime, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
+    }, [gameState, highScore, gameOver, victory, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, isVictory, gameOverWait, createFireworks, createBossExplosion, createEnemyExplosion, createMegaEnemyExplosion, createPowerupExplosion, bossExplosionStartTime, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
 
     // Show landscape orientation warning for mobile devices (but not in test environment)
     // Detect test environment: import.meta.vitest is available in Vitest, or process.env.NODE_ENV === 'test'
