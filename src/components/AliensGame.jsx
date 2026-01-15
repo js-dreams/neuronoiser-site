@@ -14,6 +14,8 @@ const STAR_COUNT = 100
 const LEVEL_DURATION_FRAMES = 3600 // 60 seconds at 60fps
 const LIFE_POWERUP_SPEED = 2
 const LIFE_POWERUP_SIZE = 25
+const BOSS_SPEED = 1.5
+const BOSS_FIRE_RATE = 30 // frames between shots (rapid fire)
 const POWERUP_DURATION_SECONDS = 20 // Duration for 3X and Magic Defence
 
 // Sound system - 80's computer style sounds
@@ -101,6 +103,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [gameOverWait, setGameOverWait] = useState(false) // true = waiting 3 seconds after final death before allowing restart
     const [isCelebrating, setIsCelebrating] = useState(false)
     const [celebrationStartTime, setCelebrationStartTime] = useState(null)
+    const [isVictory, setIsVictory] = useState(false) // true = player won by defeating boss
+    const [bossExplosionStartTime, setBossExplosionStartTime] = useState(null) // null = no explosion, timestamp = explosion in progress
     const [showHelpDialog, setShowHelpDialog] = useState(false)
     const [scoreMultiplier, setScoreMultiplier] = useState(1) // 1 or 3
     const [scoreMultiplierEndTime, setScoreMultiplierEndTime] = useState(null)
@@ -133,6 +137,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const nextMagicDefenceSpawnFrameRef = useRef(null)
     const nextSuperWeaponSpawnFrameRef = useRef(null)
     const fireworksRef = useRef([])
+    const bossExplosionRef = useRef([]) // Boss explosion particles
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
     const clockExtenderSpawnedForScoreMultiplierRef = useRef(false)
@@ -142,6 +147,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const clockExtenderDisabledForMagicDefenceRef = useRef(false)
     const clockExtenderDisabledForSuperWeaponRef = useRef(false)
     const bonusTextsRef = useRef([]) // Array of {x, y, text, startTime}
+    const bossRef = useRef(null) // Boss enemy: {x, y, width, height, health, vx, vy, lastShotFrame}
+    const bossShieldHitsRef = useRef(0) // Track boss hits on shield (destroy shield after 4 hits)
+    const nextBossPowerupSpawnFrameRef = useRef(null) // Track next boss powerup spawn frame
 
     // Refs for help dialog icon canvases
     const regularEnemyIconRef = useRef(null)
@@ -174,7 +182,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const getEnemySpawnRate = useCallback((currentLevel) => {
         const oldLevel = 1 + (currentLevel - 1) * (7 / 9)
         // Old formula: Level 1: 60 frames, Level 8: ~28.89 frames (what was level 8, now level 10)
-        return Math.max(20, 60 - (oldLevel - 1) * (40 / 9))
+        let baseSpawnRate = Math.max(20, 60 - (oldLevel - 1) * (40 / 9))
+        // At maximum level (oldLevel >= 8), reduce spawn rate to 90% (increase frames by ~11%)
+        if (oldLevel >= 8) {
+            return Math.round(baseSpawnRate / 0.9)
+        }
+        return baseSpawnRate
     }, [])
 
     const getEnemyHorizontalSpeed = useCallback((currentLevel) => {
@@ -200,7 +213,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             return 150 - (oldLevel - 4) * 10
         } else {
             // Level 7-8: Rapid fire (old level 8, now level 10)
-            return 75 - (oldLevel - 7) * 15
+            // At highest level (oldLevel 8), reduce fire rate to 90% (multiply frames by 1/0.9)
+            const baseFireRate = 75 - (oldLevel - 7) * 15
+            if (oldLevel >= 8) {
+                // At maximum level, reduce fire rate to 90% (increase frames by ~11%)
+                return Math.round(baseFireRate / 0.9)
+            }
+            return baseFireRate
         }
     }, [])
 
@@ -292,6 +311,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         return particles
     }, [])
 
+    // Create boss explosion particles
+    const createBossExplosion = useCallback((centerX, centerY) => {
+        const colors = ['#FF4400', '#FF8800', '#FFAA00', '#FF0000', '#FF6600', '#FFFF00'] // Fire/explosion colors
+        const particles = []
+        for (let i = 0; i < 200; i++) { // Many particles for big explosion
+            const angle = (Math.PI * 2 * i) / 200
+            const speed = 3 + Math.random() * 8 // Faster than fireworks
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.008 + Math.random() * 0.015, // Slower decay for longer effect
+                color: color,
+                size: 3 + Math.random() * 6 // Larger particles
+            })
+        }
+        return particles
+    }, [])
+
     const startGame = useCallback(() => {
         // Clear any saved game state
         onClearGameState()
@@ -300,7 +341,10 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setGameOverWait(false)
         setIsCelebrating(false)
         setCelebrationStartTime(null)
+        setIsVictory(false)
+        setBossExplosionStartTime(null)
         fireworksRef.current = []
+        bossExplosionRef.current = []
         hasCelebratedThisGameRef.current = false
         clockExtenderSpawnedForScoreMultiplierRef.current = false
         clockExtenderSpawnedForMagicDefenceRef.current = false
@@ -326,6 +370,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         clockExtenderPowerupsRef.current = []
         homingMissilesRef.current = []
         bonusTextsRef.current = []
+        bossRef.current = null
+        bossShieldHitsRef.current = 0
+        nextBossPowerupSpawnFrameRef.current = null
         frameCountRef.current = 0
         levelStartTimeRef.current = Date.now()
         levelAnnouncementStartTimeRef.current = Date.now()
@@ -358,6 +405,85 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             setGameOverWait(false)
         }, 3000)
     }, [highScore, soundEnabled])
+
+    const victory = useCallback(() => {
+        setGameState('gameover')
+        setIsVictory(true)
+        if (gameStateRef.current.score > highScore) {
+            const newHighScore = gameStateRef.current.score
+            setHighScore(newHighScore)
+            previousHighScoreRef.current = newHighScore
+            localStorage.setItem('aliensHighScore', newHighScore.toString())
+        }
+        
+        // Create lots of fireworks all over the screen
+        const positions = []
+        for (let i = 0; i < 15; i++) {
+            positions.push({
+                x: Math.random() * CANVAS_WIDTH,
+                y: Math.random() * CANVAS_HEIGHT
+            })
+        }
+        fireworksRef.current = []
+        positions.forEach(pos => {
+            fireworksRef.current.push(...createFireworks(pos.x, pos.y))
+        })
+        
+        // Special long 80's victory sounds
+        if (soundEnabled) {
+            const ctx = getAudioContext()
+            if (ctx) {
+                try {
+                    // Long ascending victory fanfare
+                    const osc1 = ctx.createOscillator()
+                    const gain1 = ctx.createGain()
+                    osc1.connect(gain1)
+                    gain1.connect(ctx.destination)
+                    osc1.type = 'square'
+                    osc1.frequency.setValueAtTime(400, ctx.currentTime)
+                    osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.3)
+                    gain1.gain.setValueAtTime(0.3, ctx.currentTime)
+                    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+                    osc1.start(ctx.currentTime)
+                    osc1.stop(ctx.currentTime + 0.5)
+                    
+                    setTimeout(() => {
+                        const osc2 = ctx.createOscillator()
+                        const gain2 = ctx.createGain()
+                        osc2.connect(gain2)
+                        gain2.connect(ctx.destination)
+                        osc2.type = 'square'
+                        osc2.frequency.setValueAtTime(500, ctx.currentTime)
+                        osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.3)
+                        gain2.gain.setValueAtTime(0.3, ctx.currentTime)
+                        gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+                        osc2.start(ctx.currentTime)
+                        osc2.stop(ctx.currentTime + 0.5)
+                    }, 400)
+                    
+                    setTimeout(() => {
+                        const osc3 = ctx.createOscillator()
+                        const gain3 = ctx.createGain()
+                        osc3.connect(gain3)
+                        gain3.connect(ctx.destination)
+                        osc3.type = 'square'
+                        osc3.frequency.setValueAtTime(600, ctx.currentTime)
+                        osc3.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.4)
+                        gain3.gain.setValueAtTime(0.35, ctx.currentTime)
+                        gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6)
+                        osc3.start(ctx.currentTime)
+                        osc3.stop(ctx.currentTime + 0.6)
+                    }, 800)
+                } catch (e) {}
+            }
+        }
+        
+        // Wait 5 seconds before allowing restart
+        setGameOverWait(true)
+        setTimeout(() => {
+            setGameOverWait(false)
+        }, 5000)
+    }, [highScore, soundEnabled, createFireworks])
 
     // Keyboard handlers
     useEffect(() => {
@@ -512,6 +638,31 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     enemyBulletsRef.current = []
                     playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
                     
+                    // If we're on level 10, respawn boss from top (only if boss exists, or if boss was defeated and explosion is over)
+                    // Only respawn if boss exists (normal respawn) OR if explosion was active (boss was defeated)
+                    if (level === 10 && levelStartTimeRef.current) {
+                        const timeInLevel = (Date.now() - levelStartTimeRef.current) / 1000 // seconds
+                        // Respawn boss if: (1) boss exists, OR (2) boss was defeated (explosion was active) and enough time has passed for boss to have spawned originally (60+ seconds)
+                        if (bossRef.current || (bossExplosionStartTime && timeInLevel >= 60)) {
+                            const BOSS_SIZE = 120
+                            bossRef.current = {
+                                x: CANVAS_WIDTH / 2 - BOSS_SIZE / 2,
+                                y: -BOSS_SIZE, // Respawn from above
+                                width: BOSS_SIZE,
+                                height: BOSS_SIZE,
+                                health: 40,
+                                vx: 0,
+                                vy: 2, // Initial downward velocity
+                                lastShotFrame: null
+                            }
+                            // Initialize boss powerup spawn timer (4-15 seconds, at 60fps: 240-900 frames)
+                            nextBossPowerupSpawnFrameRef.current = frameCountRef.current + 240 + Math.floor(Math.random() * 660)
+                            // Clear explosion state if it was active
+                            setBossExplosionStartTime(null)
+                            bossExplosionRef.current = []
+                        }
+                    }
+                    
                     // Clear clock extenders (useless since we're clearing special powers)
                     clockExtenderPowerupsRef.current = []
                     
@@ -532,7 +683,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             }, 1000)
             return () => clearTimeout(timer)
         }
-    }, [deathCountdown])
+    }, [deathCountdown, level, bossExplosionStartTime])
 
     // Celebration timer (5 seconds)
     useEffect(() => {
@@ -1200,6 +1351,27 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     }
                 }
 
+                // Check if level 10 is complete (60 seconds survived) and spawn boss
+                if (level === 10 && levelStartTimeRef.current && !bossRef.current) {
+                    const timeInLevel = (Date.now() - levelStartTimeRef.current) / 1000 // seconds
+                    if (timeInLevel >= 60) {
+                        // Spawn boss: Giant Space Spider (arrives from above)
+                        const BOSS_SIZE = 120 // 4x regular enemy size (30 * 4)
+                        bossRef.current = {
+                            x: CANVAS_WIDTH / 2 - BOSS_SIZE / 2,
+                            y: -BOSS_SIZE, // Start above screen
+                            width: BOSS_SIZE,
+                            height: BOSS_SIZE,
+                            health: 40,
+                            vx: 0,
+                            vy: 2, // Initial downward velocity
+                            lastShotFrame: null
+                        }
+                        // Initialize boss powerup spawn timer (4-15 seconds, at 60fps: 240-900 frames)
+                        nextBossPowerupSpawnFrameRef.current = frameCountRef.current + 240 + Math.floor(Math.random() * 660)
+                    }
+                }
+
                 // Get current level-based difficulty
                 const currentEnemySpeed = getEnemySpeed(level)
                 const currentEnemySpawnRate = getEnemySpawnRate(level)
@@ -1247,6 +1419,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     if (superWeaponActive) {
                         // Super weapon: fire homing missiles (never more than number of enemies, max 3, and only for enemies not already targeted)
                         if (frameCountRef.current % 15 === 0) {
+                            // Check if boss is already targeted
+                            const bossTargeted = homingMissilesRef.current.some(m => m.targetBoss === true)
+                            
                             // Find which enemies are already targeted by existing missiles
                             const targetedEnemyIndices = new Set(
                                 homingMissilesRef.current
@@ -1262,9 +1437,22 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 .filter(({ index }) => !targetedEnemyIndices.has(index))
                             
                             // Fire missiles for available enemies (max 3)
-                            const missileCount = Math.min(3, availableEnemies.length)
+                            let missileCount = Math.min(3, availableEnemies.length)
                             
-                            if (missileCount > 0) {
+                            // If boss exists and not targeted, fire one missile at boss
+                            if (bossRef.current && !bossTargeted) {
+                                missileCount = 1
+                                homingMissilesRef.current.push({
+                                    x: player.x,
+                                    y: player.y - 30,
+                                    width: 6,
+                                    height: 10,
+                                    targetEnemyIndex: null,
+                                    targetBoss: true // Mark as targeting boss
+                                })
+                                // Super weapon shoot sound (slightly different)
+                                if (soundEnabledRef.current) createShootSound()
+                            } else if (missileCount > 0) {
                                 const spread = 20 // Horizontal spread for missiles
                                 for (let i = 0; i < missileCount; i++) {
                                     const offsetX = (i - (missileCount - 1) / 2) * spread // Center the spread
@@ -1273,7 +1461,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                         y: player.y - 30,
                                         width: 6,
                                         height: 10,
-                                        targetEnemyIndex: null // Will be assigned during update
+                                        targetEnemyIndex: null, // Will be assigned during update
+                                        targetBoss: false
                                     })
                                 }
                                 // Super weapon shoot sound (slightly different)
@@ -1301,7 +1490,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     .filter(bullet => bullet.y > -bullet.height)
 
                 // Update homing missiles
-                if (enemiesRef.current.length > 0) {
+                if (enemiesRef.current.length > 0 || bossRef.current) {
                     // Assign targets to missiles that don't have one (ensure unique targets)
                     const assignedTargets = new Set(
                         homingMissilesRef.current
@@ -1312,6 +1501,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     )
                     
                     homingMissilesRef.current.forEach(missile => {
+                        // Skip if already targeting boss
+                        if (missile.targetBoss) return
+                        
                         if (missile.targetEnemyIndex === null || 
                             missile.targetEnemyIndex >= enemiesRef.current.length ||
                             enemiesRef.current[missile.targetEnemyIndex] === undefined) {
@@ -1357,6 +1549,30 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     // Move missiles toward their targets
                     homingMissilesRef.current = homingMissilesRef.current
                         .map(missile => {
+                            // Handle boss targeting
+                            if (missile.targetBoss && bossRef.current) {
+                                const boss = bossRef.current
+                                const targetX = boss.x + boss.width / 2
+                                const targetY = boss.y + boss.height / 2
+                                
+                                const dx = targetX - missile.x
+                                const dy = targetY - missile.y
+                                const distance = Math.sqrt(dx * dx + dy * dy)
+                                
+                                if (distance > 0) {
+                                    // Move toward boss with homing behavior
+                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED
+                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED
+                                    
+                                    return {
+                                        ...missile,
+                                        x: missile.x + moveX,
+                                        y: missile.y + moveY
+                                    }
+                                }
+                            }
+                            
+                            // Handle enemy targeting
                             if (missile.targetEnemyIndex !== null && 
                                 missile.targetEnemyIndex < enemiesRef.current.length &&
                                 enemiesRef.current[missile.targetEnemyIndex] !== undefined) {
@@ -1395,7 +1611,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             return true
                         })
                 } else {
-                    // No enemies, just move missiles upward
+                    // No enemies or boss, just move missiles upward
                     homingMissilesRef.current = homingMissilesRef.current
                         .map(missile => ({
                             ...missile,
@@ -1425,8 +1641,24 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             bullet.y + bullet.height > player.y - 20
                         ) {
                             if (magicDefenceActive) {
-                                // Magic defence active: bullet does nothing (player is invincible)
-                                // No sound, just remove the bullet
+                                // Check if this is a boss bullet - boss can destroy shield with 4 hits
+                                if (bullet.isBossBullet) {
+                                    bossShieldHitsRef.current += 1
+                                    if (bossShieldHitsRef.current >= 4) {
+                                        // Shield destroyed by boss - disable magic defence
+                                        setMagicDefenceActive(false)
+                                        setMagicDefenceEndTime(null)
+                                        bossShieldHitsRef.current = 0
+                                        // Shield destroyed sound
+                                        if (soundEnabledRef.current) createSound(100, 0.2, 'sawtooth', 0.3)
+                                    } else {
+                                        // Boss hit shield but didn't destroy it yet - hit sound
+                                        if (soundEnabledRef.current) createSound(200, 0.1, 'sawtooth', 0.2)
+                                    }
+                                } else {
+                                    // Regular enemy bullet: blocked by shield
+                                    // No sound, just remove the bullet
+                                }
                             } else {
                                 // Normal collision: lose life
                                 setLives(prev => {
@@ -1448,8 +1680,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         return true
                     })
 
-                // Spawn enemies (using level-based spawn rate)
-                if (frameCountRef.current % Math.floor(currentEnemySpawnRate) === 0) {
+                // Spawn enemies (using level-based spawn rate) - but not when boss is active
+                if (!bossRef.current && frameCountRef.current % Math.floor(currentEnemySpawnRate) === 0) {
                     // Random horizontal velocity (left or right)
                     const direction = Math.random() < 0.5 ? -1 : 1
                     const isMega = Math.random() < megaEnemySpawnChance
@@ -1860,6 +2092,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             // Activate magic defence for 20 seconds
                             setMagicDefenceActive(true)
                             setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            bossShieldHitsRef.current = 0 // Reset boss shield hits counter
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForMagicDefenceRef.current = Math.random() < 0.5
                             // Powerup collect sound (if not bonus)
@@ -2031,7 +2264,6 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
                     .filter(enemy => {
                         if (enemy.y > CANVAS_HEIGHT) return false
-                        
                         // Collision with player
                         if (
                             enemy.x < player.x + 20 &&
@@ -2065,8 +2297,248 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         return true
                     })
 
+                // Update boss movement and shooting
+                // Don't update boss if explosion has started (boss was defeated)
+                if (bossRef.current && !bossExplosionStartTime) {
+                    const boss = bossRef.current
+                    const BOSS_SIZE = 120
+                    
+                    // Boss arrives from above, then moves around
+                    let newX = boss.x + boss.vx
+                    let newY = boss.y + boss.vy
+                    
+                    // If boss is still entering from above (y < 50), continue moving down
+                    if (boss.y < 50 && boss.vy > 0) {
+                        // Continue moving down
+                    } else if (boss.y < 50 && boss.vy <= 0) {
+                        // Boss has entered, switch to random movement
+                        if (frameCountRef.current % 60 === 0 || (boss.vx === 0 && boss.vy === 0)) {
+                            const angle = Math.random() * Math.PI * 2
+                            boss.vx = Math.cos(angle) * BOSS_SPEED
+                            boss.vy = Math.sin(angle) * BOSS_SPEED
+                        }
+                    } else {
+                        // Boss is on screen, use random movement
+                        if (frameCountRef.current % 60 === 0 || (boss.vx === 0 && boss.vy === 0)) {
+                            const angle = Math.random() * Math.PI * 2
+                            boss.vx = Math.cos(angle) * BOSS_SPEED
+                            boss.vy = Math.sin(angle) * BOSS_SPEED
+                        }
+                    }
+                    
+                    // Keep boss on screen (bounce off edges)
+                    // Restrict boss to upper 2/3 of screen
+                    const MAX_BOSS_Y = (CANVAS_HEIGHT * 2) / 3
+                    if (newX < 0) {
+                        newX = 0
+                        boss.vx = -boss.vx
+                    } else if (newX + BOSS_SIZE > CANVAS_WIDTH) {
+                        newX = CANVAS_WIDTH - BOSS_SIZE
+                        boss.vx = -boss.vx
+                    }
+                    
+                    if (newY < 0) {
+                        newY = 0
+                        boss.vy = -boss.vy
+                    } else if (newY + BOSS_SIZE > MAX_BOSS_Y) {
+                        newY = MAX_BOSS_Y - BOSS_SIZE
+                        boss.vy = -boss.vy
+                    }
+                    
+                    boss.x = newX
+                    boss.y = newY
+                    
+                    // Boss healing: heals completely in 30 seconds (adds 1/30 of missing health per second, 2x faster)
+                    const MAX_BOSS_HEALTH = 40
+                    if (boss.health < MAX_BOSS_HEALTH) {
+                        const missingHealth = MAX_BOSS_HEALTH - boss.health
+                        const healPerSecond = missingHealth / 30 // 1/30 of missing health per second (2x faster)
+                        const healPerFrame = healPerSecond / 60 // At 60fps, heal per frame
+                        boss.health = Math.min(MAX_BOSS_HEALTH, boss.health + healPerFrame)
+                    }
+                    
+                    // Boss rapid fire shooting at player
+                    const framesSinceLastShot = boss.lastShotFrame === null 
+                        ? BOSS_FIRE_RATE // Allow immediate firing if hasn't shot yet
+                        : frameCountRef.current - boss.lastShotFrame
+                    
+                    if (framesSinceLastShot >= BOSS_FIRE_RATE) {
+                        // Shoot at player
+                        const dx = player.x - (boss.x + BOSS_SIZE / 2)
+                        const dy = player.y - (boss.y + BOSS_SIZE / 2)
+                        const distance = Math.sqrt(dx * dx + dy * dy)
+                        const angle = Math.atan2(dy, dx)
+                        
+                        enemyBulletsRef.current.push({
+                            x: boss.x + BOSS_SIZE / 2,
+                            y: boss.y + BOSS_SIZE / 2,
+                            width: 6,
+                            height: 10,
+                            vx: Math.cos(angle) * ENEMY_BULLET_SPEED,
+                            vy: Math.sin(angle) * ENEMY_BULLET_SPEED,
+                            isBossBullet: true // Mark as boss bullet for shield destruction logic
+                        })
+                        
+                        boss.lastShotFrame = frameCountRef.current
+                        
+                        // Boss shoot sound (deeper, more menacing)
+                        if (soundEnabledRef.current) {
+                            const ctx = getAudioContext()
+                            if (ctx) {
+                                try {
+                                    const oscillator = ctx.createOscillator()
+                                    const gainNode = ctx.createGain()
+                                    oscillator.connect(gainNode)
+                                    gainNode.connect(ctx.destination)
+                                    oscillator.type = 'sawtooth'
+                                    oscillator.frequency.setValueAtTime(400, ctx.currentTime)
+                                    oscillator.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15)
+                                    gainNode.gain.setValueAtTime(0.04, ctx.currentTime)
+                                    gainNode.gain.exponentialRampToValueAtTime(0.015, ctx.currentTime + 0.15)
+                                    oscillator.start(ctx.currentTime)
+                                    oscillator.stop(ctx.currentTime + 0.15)
+                                } catch (e) {}
+                            }
+                        }
+                    }
+                }
+
+                // Spawn random powerups when boss is active (4-15 second intervals)
+                // Don't spawn powerups if explosion has started (boss was defeated)
+                if (bossRef.current && !bossExplosionStartTime && nextBossPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextBossPowerupSpawnFrameRef.current) {
+                    // Generate spawn position that avoids player's x position and player bullets/missiles
+                    const PLAYER_AVOID_ZONE = 80
+                    const BULLET_AVOID_ZONE = 50
+                    let spawnX
+                    let attempts = 0
+                    do {
+                        spawnX = Math.random() * (CANVAS_WIDTH - LIFE_POWERUP_SIZE * 2) + LIFE_POWERUP_SIZE
+                        attempts++
+                        const tooCloseToPlayer = Math.abs(spawnX - player.x) < PLAYER_AVOID_ZONE
+                        const hasBulletInPath = bulletsRef.current.some(bullet => {
+                            const bulletCenterX = bullet.x
+                            return Math.abs(spawnX - bulletCenterX) < BULLET_AVOID_ZONE && bullet.y < CANVAS_HEIGHT * 0.3
+                        })
+                        const hasMissileInPath = homingMissilesRef.current.some(missile => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            return Math.abs(spawnX - missileCenterX) < BULLET_AVOID_ZONE && missile.y < CANVAS_HEIGHT * 0.3
+                        })
+                        if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
+                    } while (spawnX === null && attempts < 30)
+                    
+                    if (spawnX !== null) {
+                        // Randomly select powerup type (0=life, 1=score bonus, 2=magic defence, 3=super weapon)
+                        const powerupType = Math.floor(Math.random() * 4)
+                        switch (powerupType) {
+                            case 0:
+                                lifePowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                                break
+                            case 1:
+                                scoreBonusPowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                                break
+                            case 2:
+                                magicDefencePowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                                break
+                            case 3:
+                                superWeaponPowerupsRef.current.push({
+                                    x: spawnX,
+                                    y: -LIFE_POWERUP_SIZE,
+                                    size: LIFE_POWERUP_SIZE
+                                })
+                                break
+                        }
+                        // Schedule next boss powerup spawn (4-15 seconds, at 60fps: 240-900 frames)
+                        nextBossPowerupSpawnFrameRef.current = frameCountRef.current + 240 + Math.floor(Math.random() * 660)
+                    } else {
+                        // If couldn't find a spawn position, try again soon
+                        nextBossPowerupSpawnFrameRef.current = frameCountRef.current + 60 // Try again in 1 second
+                    }
+                }
+
                 // Bullet-enemy collisions
                 bulletsRef.current = bulletsRef.current.filter(bullet => {
+                    // Check collision with boss first (if boss exists)
+                    if (bossRef.current) {
+                        const boss = bossRef.current
+                        if (
+                            bullet.x < boss.x + boss.width &&
+                            bullet.x + bullet.width > boss.x &&
+                            bullet.y < boss.y + boss.height &&
+                            bullet.y + bullet.height > boss.y
+                        ) {
+                            // Hit boss - reduce health
+                            boss.health -= 1
+                            // Award points for hitting boss (2000 base, tripled with 3x score)
+                            const hitPoints = 2000 * scoreMultiplier
+                            setScore(prev => prev + hitPoints)
+                            // Boss hit sound
+                            if (soundEnabledRef.current) createSound(150, 0.15, 'sawtooth', 0.25)
+                            
+                            // Check if boss is defeated
+                            if (boss.health <= 0) {
+                                // Award points for killing boss (10000 base, tripled with 3x score)
+                                const killPoints = 10000 * scoreMultiplier
+                                setScore(prev => prev + killPoints)
+                                // Immediately remove boss to prevent further updates/drawing
+                                const BOSS_SIZE = 120
+                                const explosionX = boss.x + BOSS_SIZE / 2
+                                const explosionY = boss.y + BOSS_SIZE / 2
+                                bossRef.current = null // Set to null IMMEDIATELY
+                                bossExplosionRef.current = createBossExplosion(explosionX, explosionY)
+                                setBossExplosionStartTime(Date.now())
+                                
+                                // Big explosion sound
+                                if (soundEnabledRef.current) {
+                                    const ctx = getAudioContext()
+                                    if (ctx) {
+                                        try {
+                                            // Low frequency boom
+                                            const osc1 = ctx.createOscillator()
+                                            const gain1 = ctx.createGain()
+                                            osc1.connect(gain1)
+                                            gain1.connect(ctx.destination)
+                                            osc1.type = 'sawtooth'
+                                            osc1.frequency.setValueAtTime(80, ctx.currentTime)
+                                            osc1.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5)
+                                            gain1.gain.setValueAtTime(0.3, ctx.currentTime)
+                                            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8)
+                                            osc1.start(ctx.currentTime)
+                                            osc1.stop(ctx.currentTime + 0.8)
+                                            
+                                            // High frequency crack
+                                            setTimeout(() => {
+                                                const osc2 = ctx.createOscillator()
+                                                const gain2 = ctx.createGain()
+                                                osc2.connect(gain2)
+                                                gain2.connect(ctx.destination)
+                                                osc2.type = 'square'
+                                                osc2.frequency.setValueAtTime(400, ctx.currentTime)
+                                                osc2.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.3)
+                                                gain2.gain.setValueAtTime(0.2, ctx.currentTime)
+                                                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+                                                osc2.start(ctx.currentTime)
+                                                osc2.stop(ctx.currentTime + 0.5)
+                                            }, 100)
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+                            return false
+                        }
+                    }
+                    
                     // Check collision with enemies
                     const hitEnemy = enemiesRef.current.findIndex(enemy => {
                         if (
@@ -2099,21 +2571,101 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 const enemiesToRemove = []
                 
                 homingMissilesRef.current.forEach((missile, missileIndex) => {
-                    // Check collision with enemies
-                    const hitEnemy = enemiesRef.current.findIndex(enemy => {
+                    // Check collision with boss first (if boss exists)
+                    if (bossRef.current && !missilesToRemove.has(missileIndex)) {
+                        const boss = bossRef.current
                         const missileCenterX = missile.x + missile.width / 2
                         const missileCenterY = missile.y + missile.height / 2
-                        const enemyCenterX = enemy.x + enemy.width / 2
-                        const enemyCenterY = enemy.y + enemy.height / 2
+                        const bossCenterX = boss.x + boss.width / 2
+                        const bossCenterY = boss.y + boss.height / 2
                         
                         const distance = Math.sqrt(
-                            Math.pow(missileCenterX - enemyCenterX, 2) +
-                            Math.pow(missileCenterY - enemyCenterY, 2)
+                            Math.pow(missileCenterX - bossCenterX, 2) +
+                            Math.pow(missileCenterY - bossCenterY, 2)
                         )
                         
                         // Collision detection with reasonable hitbox
-                        return distance < (missile.width + Math.max(enemy.width, enemy.height)) / 2
-                    })
+                        if (distance < (missile.width + boss.width) / 2) {
+                            // Hit boss - reduce health
+                            boss.health -= 1
+                            // Mark this missile for removal
+                            missilesToRemove.add(missileIndex)
+                            // Award points for hitting boss (2000 base, tripled with 3x score)
+                            const hitPoints = 2000 * scoreMultiplier
+                            setScore(prev => prev + hitPoints)
+                            // Boss hit sound
+                            if (soundEnabledRef.current) createSound(150, 0.15, 'sawtooth', 0.25)
+                            
+                            // Check if boss is defeated
+                            if (boss.health <= 0) {
+                                // Award points for killing boss (10000 base, tripled with 3x score)
+                                const killPoints = 10000 * scoreMultiplier
+                                setScore(prev => prev + killPoints)
+                                // Immediately remove boss to prevent further updates/drawing
+                                const BOSS_SIZE = 120
+                                const explosionX = boss.x + BOSS_SIZE / 2
+                                const explosionY = boss.y + BOSS_SIZE / 2
+                                bossRef.current = null // Set to null IMMEDIATELY
+                                bossExplosionRef.current = createBossExplosion(explosionX, explosionY)
+                                setBossExplosionStartTime(Date.now())
+                                
+                                // Big explosion sound
+                                if (soundEnabledRef.current) {
+                                    const ctx = getAudioContext()
+                                    if (ctx) {
+                                        try {
+                                            // Low frequency boom
+                                            const osc1 = ctx.createOscillator()
+                                            const gain1 = ctx.createGain()
+                                            osc1.connect(gain1)
+                                            gain1.connect(ctx.destination)
+                                            osc1.type = 'sawtooth'
+                                            osc1.frequency.setValueAtTime(80, ctx.currentTime)
+                                            osc1.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5)
+                                            gain1.gain.setValueAtTime(0.3, ctx.currentTime)
+                                            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8)
+                                            osc1.start(ctx.currentTime)
+                                            osc1.stop(ctx.currentTime + 0.8)
+                                            
+                                            // High frequency crack
+                                            setTimeout(() => {
+                                                const osc2 = ctx.createOscillator()
+                                                const gain2 = ctx.createGain()
+                                                osc2.connect(gain2)
+                                                gain2.connect(ctx.destination)
+                                                osc2.type = 'square'
+                                                osc2.frequency.setValueAtTime(400, ctx.currentTime)
+                                                osc2.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.3)
+                                                gain2.gain.setValueAtTime(0.2, ctx.currentTime)
+                                                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+                                                osc2.start(ctx.currentTime)
+                                                osc2.stop(ctx.currentTime + 0.5)
+                                            }, 100)
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check collision with enemies
+                    let hitEnemy = -1
+                    if (!missilesToRemove.has(missileIndex)) {
+                        hitEnemy = enemiesRef.current.findIndex(enemy => {
+                            const missileCenterX = missile.x + missile.width / 2
+                            const missileCenterY = missile.y + missile.height / 2
+                            const enemyCenterX = enemy.x + enemy.width / 2
+                            const enemyCenterY = enemy.y + enemy.height / 2
+                            
+                            const distance = Math.sqrt(
+                                Math.pow(missileCenterX - enemyCenterX, 2) +
+                                Math.pow(missileCenterY - enemyCenterY, 2)
+                            )
+                            
+                            // Collision detection with reasonable hitbox
+                            return distance < (missile.width + Math.max(enemy.width, enemy.height)) / 2
+                        })
+                    }
 
                     if (hitEnemy !== -1 && !enemiesToRemove.includes(hitEnemy)) {
                         const destroyedEnemy = enemiesRef.current[hitEnemy]
@@ -2438,6 +2990,103 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     }
                 })
 
+                // Draw boss (Giant Space Spider)
+                // Don't draw boss if explosion has started (boss was defeated)
+                if (bossRef.current && !bossExplosionStartTime) {
+                    const boss = bossRef.current
+                    const BOSS_SIZE = 120
+                    const centerX = boss.x + BOSS_SIZE / 2
+                    const centerY = boss.y + BOSS_SIZE / 2
+                    const radius = BOSS_SIZE / 2
+                    
+                    ctx.save()
+                    
+                    // Boss color changes based on health: normal color to blood-red
+                    // health 40 = normal (#1A1A1A), health 0 = blood-red (#8B0000)
+                    const MAX_BOSS_HEALTH = 40
+                    const healthRatio = Math.max(0, boss.health / MAX_BOSS_HEALTH) // 1.0 (full) to 0.0 (dead)
+                    
+                    // Interpolate between normal color (RGB: 26, 26, 26) and blood-red (RGB: 139, 0, 0)
+                    const normalR = 26, normalG = 26, normalB = 26
+                    const redR = 139, redG = 0, redB = 0
+                    const r = Math.round(normalR + (redR - normalR) * (1 - healthRatio))
+                    const g = Math.round(normalG + (redG - normalG) * (1 - healthRatio))
+                    const b = Math.round(normalB + (redB - normalB) * (1 - healthRatio))
+                    
+                    // Convert to hex color
+                    const bossColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+                    const bossOutlineColor = `#${Math.max(0, r - 10).toString(16).padStart(2, '0')}${Math.max(0, g - 10).toString(16).padStart(2, '0')}${Math.max(0, b - 10).toString(16).padStart(2, '0')}`
+                    const bossLegColor = `#${Math.min(255, r + 5).toString(16).padStart(2, '0')}${Math.min(255, g + 5).toString(16).padStart(2, '0')}${Math.min(255, b + 5).toString(16).padStart(2, '0')}`
+                    
+                    // Boss body: color changes from dark gray to blood-red based on health
+                    ctx.fillStyle = bossColor
+                    ctx.strokeStyle = bossOutlineColor
+                    ctx.lineWidth = 2
+                    
+                    // Main body (spider abdomen)
+                    ctx.beginPath()
+                    if (isMobile) {
+                        ctx.ellipse(centerX, centerY, radius * 0.9, radius * 0.75, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.ellipse(centerX, centerY, radius * 0.9, radius * 0.75, 0, 0, Math.PI * 2)
+                    }
+                    ctx.fill()
+                    ctx.stroke()
+                    
+                    // Spider head (smaller circle at front)
+                    ctx.beginPath()
+                    if (isMobile) {
+                        ctx.ellipse(centerX - radius * 0.3, centerY, radius * 0.4, radius * 0.35, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.ellipse(centerX - radius * 0.3, centerY, radius * 0.4, radius * 0.35, 0, 0, Math.PI * 2)
+                    }
+                    ctx.fill()
+                    ctx.stroke()
+                    
+                    // Spider legs (8 legs total - 4 on each side)
+                    ctx.strokeStyle = bossLegColor
+                    ctx.lineWidth = 3
+                    ctx.beginPath()
+                    
+                    // Top legs (left side)
+                    ctx.moveTo(centerX - radius * 0.4, centerY - radius * 0.3)
+                    ctx.lineTo(centerX - radius * 1.2, centerY - radius * 0.8)
+                    ctx.moveTo(centerX - radius * 0.3, centerY - radius * 0.5)
+                    ctx.lineTo(centerX - radius * 1.1, centerY - radius * 1.0)
+                    
+                    // Top legs (right side)
+                    ctx.moveTo(centerX + radius * 0.4, centerY - radius * 0.3)
+                    ctx.lineTo(centerX + radius * 1.2, centerY - radius * 0.8)
+                    ctx.moveTo(centerX + radius * 0.3, centerY - radius * 0.5)
+                    ctx.lineTo(centerX + radius * 1.1, centerY - radius * 1.0)
+                    
+                    // Bottom legs (left side)
+                    ctx.moveTo(centerX - radius * 0.4, centerY + radius * 0.3)
+                    ctx.lineTo(centerX - radius * 1.2, centerY + radius * 0.8)
+                    ctx.moveTo(centerX - radius * 0.3, centerY + radius * 0.5)
+                    ctx.lineTo(centerX - radius * 1.1, centerY + radius * 1.0)
+                    
+                    // Bottom legs (right side)
+                    ctx.moveTo(centerX + radius * 0.4, centerY + radius * 0.3)
+                    ctx.lineTo(centerX + radius * 1.2, centerY + radius * 0.8)
+                    ctx.moveTo(centerX + radius * 0.3, centerY + radius * 0.5)
+                    ctx.lineTo(centerX + radius * 1.1, centerY + radius * 1.0)
+                    
+                    ctx.stroke()
+                    
+                    // Eyes (tiny dark red glows - barely visible)
+                    ctx.fillStyle = '#1A0000' // Very dark red
+                    ctx.shadowBlur = 3
+                    ctx.shadowColor = '#1A0000'
+                    ctx.beginPath()
+                    ctx.arc(centerX - radius * 0.4, centerY - radius * 0.1, radius * 0.08, 0, Math.PI * 2)
+                    ctx.arc(centerX - radius * 0.2, centerY - radius * 0.05, radius * 0.08, 0, Math.PI * 2)
+                    ctx.fill()
+                    ctx.shadowBlur = 0
+                    
+                    ctx.restore()
+                }
+
                 // Draw life powerups
                 lifePowerupsRef.current.forEach(powerup => {
                     // Blue circle (ellipse on mobile - width doubled, height same)
@@ -2751,6 +3400,44 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 })
             }
 
+            // Update and draw boss explosion
+            if (bossExplosionStartTime) {
+                const explosionTime = (Date.now() - bossExplosionStartTime) / 1000 // seconds
+                
+                // Update explosion particles
+                bossExplosionRef.current = bossExplosionRef.current
+                    .map(particle => ({
+                        ...particle,
+                        x: particle.x + particle.vx,
+                        y: particle.y + particle.vy,
+                        vy: particle.vy + 0.05, // slight gravity
+                        life: particle.life - particle.decay
+                    }))
+                    .filter(particle => particle.life > 0)
+                
+                // Draw explosion particles (in logical coordinates, before context restore)
+                if (bossExplosionRef.current.length > 0) {
+                    bossExplosionRef.current.forEach(particle => {
+                        ctx.save()
+                        ctx.globalAlpha = particle.life
+                        ctx.fillStyle = particle.color
+                        ctx.shadowBlur = 15
+                        ctx.shadowColor = particle.color
+                        ctx.beginPath()
+                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.shadowBlur = 0
+                        ctx.restore()
+                    })
+                }
+                
+                // After 3 seconds, trigger victory
+                if (explosionTime >= 3.0) {
+                    setBossExplosionStartTime(null)
+                    victory()
+                }
+            }
+
             // Update and draw fireworks (even during celebration) - before context restore
             if (isCelebrating) {
                 fireworksRef.current = fireworksRef.current
@@ -2787,7 +3474,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
             // Draw celebration overlay (HIGH SCORE!) - dimmed background so game remains visible
             if (isCelebrating) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.16)' // 60% more transparent (was 0.4)
                 ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
                 
                 ctx.fillStyle = '#FFFF00'
@@ -2813,7 +3500,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
             // Draw countdown overlay
             if (countdown > 0 && gameStateRef.current.gameState === 'playing') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.32)' // 60% more transparent (was 0.8)
                 ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
                 
                 ctx.fillStyle = '#00FFFF'
@@ -2833,7 +3520,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
             // Draw death countdown overlay
             if (deathCountdown > 0 && gameStateRef.current.gameState === 'playing') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.32)' // 60% more transparent (was 0.8)
                 ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
                 
                 ctx.textAlign = 'center'
@@ -2883,7 +3570,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         opacity = 1.0 - ((announcementAge - showDuration) / fadeDuration)
                     }
                     
-                    ctx.fillStyle = `rgba(0, 0, 0, ${0.8 * opacity})`
+                    ctx.fillStyle = `rgba(0, 0, 0, ${0.32 * opacity})` // 60% more transparent (was 0.8)
                     ctx.fillRect(0, 0, isMobile ? canvas.width : CANVAS_WIDTH, isMobile ? canvas.height : CANVAS_HEIGHT)
                     
                     ctx.fillStyle = `rgba(0, 255, 255, ${opacity})`
@@ -2985,32 +3672,68 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             }
 
             if (gameStateRef.current.gameState === 'gameover') {
-                ctx.fillStyle = '#FF0088'
-                if (isMobile) {
-                    const scaleX = canvas.width / CANVAS_WIDTH
-                    const scaleY = canvas.height / CANVAS_HEIGHT
-                    const fontScale = scaleX
-                    ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
-                    ctx.textAlign = 'center'
-                    ctx.fillText('GAME OVER', canvas.width / 2, (CANVAS_HEIGHT / 2 - 40) * scaleY)
-                    
-                    ctx.fillStyle = '#00FFFF'
-                    ctx.font = `${24 * fontScale}px "Courier New", monospace`
-                    ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
-                    ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
-                    
-                    ctx.textAlign = 'left'
+                if (isVictory) {
+                    // Victory message
+                    ctx.fillStyle = '#00FF00'
+                    if (isMobile) {
+                        const scaleX = canvas.width / CANVAS_WIDTH
+                        const scaleY = canvas.height / CANVAS_HEIGHT
+                        const fontScale = scaleX
+                        ctx.font = `bold ${64 * fontScale}px "Courier New", monospace`
+                        ctx.textAlign = 'center'
+                        ctx.fillText('YOU WON!', canvas.width / 2, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                        
+                        ctx.fillStyle = '#FFFF00'
+                        ctx.font = `${32 * fontScale}px "Courier New", monospace`
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        if (!gameOverWait) {
+                            ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                        }
+                        
+                        ctx.textAlign = 'left'
+                    } else {
+                        ctx.font = 'bold 64px "Courier New", monospace'
+                        ctx.textAlign = 'center'
+                        ctx.fillText('YOU WON!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60)
+                        
+                        ctx.fillStyle = '#FFFF00'
+                        ctx.font = '32px "Courier New", monospace'
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40)
+                        if (!gameOverWait) {
+                            ctx.fillText('PRESS SPACE TO RESTART', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100)
+                        }
+                        
+                        ctx.textAlign = 'left'
+                    }
                 } else {
-                    ctx.font = 'bold 48px "Courier New", monospace'
-                    ctx.textAlign = 'center'
-                    ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40)
-                    
-                    ctx.fillStyle = '#00FFFF'
-                    ctx.font = '24px "Courier New", monospace'
-                    ctx.fillText(`Final Score: ${gameStateRef.current.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40)
-                    ctx.fillText('PRESS SPACE TO RESTART', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100)
-                    
-                    ctx.textAlign = 'left'
+                    // Regular game over
+                    ctx.fillStyle = '#FF0088'
+                    if (isMobile) {
+                        const scaleX = canvas.width / CANVAS_WIDTH
+                        const scaleY = canvas.height / CANVAS_HEIGHT
+                        const fontScale = scaleX
+                        ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                        ctx.textAlign = 'center'
+                        ctx.fillText('GAME OVER', canvas.width / 2, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        
+                        ctx.fillStyle = '#00FFFF'
+                        ctx.font = `${24 * fontScale}px "Courier New", monospace`
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                        
+                        ctx.textAlign = 'left'
+                    } else {
+                        ctx.font = 'bold 48px "Courier New", monospace'
+                        ctx.textAlign = 'center'
+                        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40)
+                        
+                        ctx.fillStyle = '#00FFFF'
+                        ctx.font = '24px "Courier New", monospace'
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40)
+                        ctx.fillText('PRESS SPACE TO RESTART', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100)
+                        
+                        ctx.textAlign = 'left'
+                    }
                 }
             }
 
@@ -3024,7 +3747,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, createFireworks, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
+    }, [gameState, highScore, gameOver, victory, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, isVictory, gameOverWait, createFireworks, createBossExplosion, bossExplosionStartTime, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
 
     // Show landscape orientation warning for mobile devices (but not in test environment)
     // Detect test environment: import.meta.vitest is available in Vitest, or process.env.NODE_ENV === 'test'
