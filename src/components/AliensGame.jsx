@@ -96,7 +96,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [isMobile, setIsMobile] = useState(false)
     const [isLandscapeMobile, setIsLandscapeMobile] = useState(false)
     const [level, setLevel] = useState(1)
-    const [lives, setLives] = useState(1)
+    const [lives, setLives] = useState(3)
     const [soundEnabled, setSoundEnabled] = useState(true)
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
     const [deathCountdown, setDeathCountdown] = useState(0) // 0 = no death countdown, 3-1 = death countdown in progress
@@ -433,7 +433,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setGameState('playing')
         setScore(0)
         setLevel(1)
-        setLives(1)
+        setLives(3)
         playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
         bulletsRef.current = []
         enemiesRef.current = []
@@ -4386,7 +4386,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     <div>
                                         <h3 className="text-lg font-semibold text-white mb-2">Gameplay</h3>
                                         <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li>You start with 1 life</li>
+                                            <li>You start with 3 lives</li>
                                             <li>Lose a life when hit by enemy bullets or collisions</li>
                                             <li>Game ends when all lives are lost</li>
                                             <li>Each level lasts 60 seconds</li>
@@ -4570,7 +4570,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-2">Gameplay</h3>
                                     <ul className="list-disc list-inside ml-2 space-y-1">
-                                        <li>You start with 1 life</li>
+                                        <li>You start with 3 lives</li>
                                         <li>Lose a life when hit by enemy bullets or collisions</li>
                                         <li>Game ends when all lives are lost</li>
                                         <li>Each level lasts 60 seconds</li>
