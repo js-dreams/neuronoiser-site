@@ -1368,6 +1368,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 : 1.0 // First frame
             lastFrameTimeRef.current = currentTime
             
+            // Calculate aspect ratio for mobile scaling once per frame: (clientHeight/clientWidth) / (height/width)
+            const aspectRatio = isMobile && canvas ? ((canvas.clientHeight / canvas.clientWidth) / (canvas.height / canvas.width)) : 1
+            
             // Clear canvas
             ctx.fillStyle = '#000011'
             if (isMobile) {
@@ -3167,7 +3170,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Draw player
                 ctx.fillStyle = '#00FFFF'
-                const playerWidth = isMobile ? 30 : 15
+                const playerWidth = isMobile ? 15 * aspectRatio : 15
                 ctx.beginPath()
                 ctx.moveTo(player.x, player.y - 25)
                 ctx.lineTo(player.x - playerWidth, player.y + 15)
@@ -3182,20 +3185,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fill()
                 ctx.shadowBlur = 0
 
-                // Draw magic defence shield (circular, fading as time runs out)
+                    // Draw magic defence shield (circular, fading as time runs out)
                 if (magicDefenceActive && magicDefenceEndTime) {
                     const timeRemaining = (magicDefenceEndTime - Date.now()) / 1000
                     const maxTime = POWERUP_DURATION_SECONDS
                     const opacity = Math.max(0.3, timeRemaining / maxTime) // Fade from 1.0 to 0.3
-                    
+
                     ctx.save()
                     ctx.globalAlpha = opacity
                     ctx.strokeStyle = '#800080'
                     ctx.lineWidth = 3
-                    ctx.beginPath()
-                    ctx.arc(player.x, player.y, 30, 0, Math.PI * 2)
-                    ctx.stroke()
                     
+                    const shieldRadiusX = 30 * aspectRatio
+                    const shieldRadiusY = 30
+                    
+                    ctx.beginPath()
+                    if (isMobile) {
+                        ctx.ellipse(player.x, player.y, shieldRadiusX, shieldRadiusY, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(player.x, player.y, 30, 0, Math.PI * 2)
+                    }
+                    ctx.stroke()
+
                     // Shield glow
                     ctx.shadowBlur = 20
                     ctx.shadowColor = '#800080'
@@ -3246,7 +3257,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Draw enemies
                 enemiesRef.current.forEach(enemy => {
-                    const enemyRadiusX = isMobile ? enemy.width : enemy.width / 2
+                    const enemyRadiusX = isMobile ? (enemy.width / 2) * aspectRatio : enemy.width / 2
                     const enemyRadiusY = enemy.width / 2
                     const centerX = enemy.x + enemy.width / 2
                     const centerY = enemy.y + enemy.height / 2
@@ -3353,7 +3364,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         
                         // Center detail: yellow accent
                         ctx.fillStyle = '#FFAA00' // Yellow-orange
-                        const detailRadiusX = isMobile ? enemy.width / 3 : enemy.width / 5
+                        const detailRadiusX = isMobile ? (enemy.width / 5) * aspectRatio : enemy.width / 5
                         const detailRadiusY = enemy.width / 5
                         ctx.beginPath()
                         if (isMobile) {
@@ -3372,7 +3383,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const BOSS_SIZE = 120
                     const centerX = boss.x + BOSS_SIZE / 2
                     const centerY = boss.y + BOSS_SIZE / 2
-                    const radius = BOSS_SIZE / 2
+                    const radiusX = (BOSS_SIZE / 2) * (isMobile ? aspectRatio : 1)
+                    const radiusY = BOSS_SIZE / 2
+                    const radius = BOSS_SIZE / 2 // Keep original for calculations that need equal scaling
                     
                     ctx.save()
                     
@@ -3401,7 +3414,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     // Main body (spider abdomen)
                     ctx.beginPath()
                     if (isMobile) {
-                        ctx.ellipse(centerX, centerY, radius * 0.9, radius * 0.75, 0, 0, Math.PI * 2)
+                        ctx.ellipse(centerX, centerY, radiusX * 0.9, radiusY * 0.75, 0, 0, Math.PI * 2)
                     } else {
                         ctx.ellipse(centerX, centerY, radius * 0.9, radius * 0.75, 0, 0, Math.PI * 2)
                     }
@@ -3411,7 +3424,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     // Spider head (smaller circle at front)
                     ctx.beginPath()
                     if (isMobile) {
-                        ctx.ellipse(centerX - radius * 0.3, centerY, radius * 0.4, radius * 0.35, 0, 0, Math.PI * 2)
+                        ctx.ellipse(centerX - radiusX * 0.3, centerY, radiusX * 0.4, radiusY * 0.35, 0, 0, Math.PI * 2)
                     } else {
                         ctx.ellipse(centerX - radius * 0.3, centerY, radius * 0.4, radius * 0.35, 0, 0, Math.PI * 2)
                     }
@@ -3424,28 +3437,28 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.beginPath()
                     
                     // Top legs (left side)
-                    ctx.moveTo(centerX - radius * 0.4, centerY - radius * 0.3)
-                    ctx.lineTo(centerX - radius * 1.2, centerY - radius * 0.8)
-                    ctx.moveTo(centerX - radius * 0.3, centerY - radius * 0.5)
-                    ctx.lineTo(centerX - radius * 1.1, centerY - radius * 1.0)
+                    ctx.moveTo(centerX - radiusX * 0.4, centerY - radiusY * 0.3)
+                    ctx.lineTo(centerX - radiusX * 1.2, centerY - radiusY * 0.8)
+                    ctx.moveTo(centerX - radiusX * 0.3, centerY - radiusY * 0.5)
+                    ctx.lineTo(centerX - radiusX * 1.1, centerY - radiusY * 1.0)
                     
                     // Top legs (right side)
-                    ctx.moveTo(centerX + radius * 0.4, centerY - radius * 0.3)
-                    ctx.lineTo(centerX + radius * 1.2, centerY - radius * 0.8)
-                    ctx.moveTo(centerX + radius * 0.3, centerY - radius * 0.5)
-                    ctx.lineTo(centerX + radius * 1.1, centerY - radius * 1.0)
+                    ctx.moveTo(centerX + radiusX * 0.4, centerY - radiusY * 0.3)
+                    ctx.lineTo(centerX + radiusX * 1.2, centerY - radiusY * 0.8)
+                    ctx.moveTo(centerX + radiusX * 0.3, centerY - radiusY * 0.5)
+                    ctx.lineTo(centerX + radiusX * 1.1, centerY - radiusY * 1.0)
                     
                     // Bottom legs (left side)
-                    ctx.moveTo(centerX - radius * 0.4, centerY + radius * 0.3)
-                    ctx.lineTo(centerX - radius * 1.2, centerY + radius * 0.8)
-                    ctx.moveTo(centerX - radius * 0.3, centerY + radius * 0.5)
-                    ctx.lineTo(centerX - radius * 1.1, centerY + radius * 1.0)
+                    ctx.moveTo(centerX - radiusX * 0.4, centerY + radiusY * 0.3)
+                    ctx.lineTo(centerX - radiusX * 1.2, centerY + radiusY * 0.8)
+                    ctx.moveTo(centerX - radiusX * 0.3, centerY + radiusY * 0.5)
+                    ctx.lineTo(centerX - radiusX * 1.1, centerY + radiusY * 1.0)
                     
                     // Bottom legs (right side)
-                    ctx.moveTo(centerX + radius * 0.4, centerY + radius * 0.3)
-                    ctx.lineTo(centerX + radius * 1.2, centerY + radius * 0.8)
-                    ctx.moveTo(centerX + radius * 0.3, centerY + radius * 0.5)
-                    ctx.lineTo(centerX + radius * 1.1, centerY + radius * 1.0)
+                    ctx.moveTo(centerX + radiusX * 0.4, centerY + radiusY * 0.3)
+                    ctx.lineTo(centerX + radiusX * 1.2, centerY + radiusY * 0.8)
+                    ctx.moveTo(centerX + radiusX * 0.3, centerY + radiusY * 0.5)
+                    ctx.lineTo(centerX + radiusX * 1.1, centerY + radiusY * 1.0)
                     
                     ctx.stroke()
                     
@@ -3454,8 +3467,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.shadowBlur = 3
                     ctx.shadowColor = '#1A0000'
                     ctx.beginPath()
-                    ctx.arc(centerX - radius * 0.4, centerY - radius * 0.1, radius * 0.08, 0, Math.PI * 2)
-                    ctx.arc(centerX - radius * 0.2, centerY - radius * 0.05, radius * 0.08, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(centerX - radiusX * 0.4, centerY - radiusY * 0.1, radiusX * 0.08, radiusY * 0.08, 0, 0, Math.PI * 2)
+                        ctx.ellipse(centerX - radiusX * 0.2, centerY - radiusY * 0.05, radiusX * 0.08, radiusY * 0.08, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(centerX - radius * 0.4, centerY - radius * 0.1, radius * 0.08, 0, Math.PI * 2)
+                        ctx.arc(centerX - radius * 0.2, centerY - radius * 0.05, radius * 0.08, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     ctx.shadowBlur = 0
                     
@@ -3464,9 +3482,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Draw life powerups
                 lifePowerupsRef.current.forEach(powerup => {
-                    // Blue circle (ellipse on mobile - width doubled, height same)
+                    // Blue circle (ellipse on mobile - width scaled by aspect ratio, height same)
                     ctx.fillStyle = '#0088FF'
-                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusX = isMobile ? powerup.size * aspectRatio : powerup.size
                     const powerupRadiusY = powerup.size
                     ctx.beginPath()
                     if (isMobile) {
@@ -3487,7 +3505,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
                     ctx.font = 'bold 14px "Courier New", monospace'
-                    ctx.fillText('+1', powerup.x, powerup.y)
+                    if (isMobile) {
+                        // Calculate aspect ratio for mobile text scaling: (clientHeight/clientWidth) / (height/width)
+                        const aspectRatio = (canvas.clientHeight / canvas.clientWidth) / (canvas.height / canvas.width)
+                        ctx.save()
+                        ctx.scale(aspectRatio, 1.0)
+                        ctx.fillText('+1', powerup.x / aspectRatio, powerup.y)
+                        ctx.restore()
+                    } else {
+                        ctx.fillText('+1', powerup.x, powerup.y)
+                    }
                     ctx.textAlign = 'left'
                     ctx.textBaseline = 'alphabetic'
                 })
@@ -3496,7 +3523,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 scoreBonusPowerupsRef.current.forEach(powerup => {
                     ctx.save()
                     
-                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+                    const powerupRadiusX = isMobile ? powerup.size * aspectRatio : powerup.size
                     const powerupRadiusY = powerup.size
                     
                     // Outer glow for shiny effect
@@ -3544,7 +3571,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
                     ctx.font = 'bold 14px "Courier New", monospace'
-                    ctx.fillText('3X', powerup.x, powerup.y)
+                    if (isMobile) {
+                        // Calculate aspect ratio for mobile text scaling: (clientHeight/clientWidth) / (height/width)
+                        const aspectRatio = (canvas.clientHeight / canvas.clientWidth) / (canvas.height / canvas.width)
+                        ctx.save()
+                        ctx.scale(aspectRatio, 1.0)
+                        ctx.fillText('3X', powerup.x / aspectRatio, powerup.y)
+                        ctx.restore()
+                    } else {
+                        ctx.fillText('3X', powerup.x, powerup.y)
+                    }
                     ctx.textAlign = 'left'
                     ctx.textBaseline = 'alphabetic'
                     
@@ -3554,8 +3590,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Draw magic defence powerups
                 magicDefencePowerupsRef.current.forEach(powerup => {
                     ctx.save()
-                    
-                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+
+                    const powerupRadiusX = isMobile ? powerup.size * aspectRatio : powerup.size
                     const powerupRadiusY = powerup.size
                     
                     // Aura effect - multiple glowing layers
@@ -3615,8 +3651,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Draw super weapon powerups
                 superWeaponPowerupsRef.current.forEach(powerup => {
                     ctx.save()
-                    
-                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+
+                    const powerupRadiusX = isMobile ? powerup.size * aspectRatio : powerup.size
                     const powerupRadiusY = powerup.size
                     
                     // Bright turquoise circle with glow
@@ -3682,8 +3718,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Draw clock extender powerups
                 clockExtenderPowerupsRef.current.forEach(powerup => {
                     ctx.save()
-                    
-                    const powerupRadiusX = isMobile ? powerup.size * 2 : powerup.size
+
+                    const powerupRadiusX = isMobile ? powerup.size * aspectRatio : powerup.size
                     const powerupRadiusY = powerup.size
                     
                     // Clock face circle (light gray/white)
@@ -3929,10 +3965,17 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const scaleX = canvas.width / CANVAS_WIDTH
                     const scaleY = canvas.height / CANVAS_HEIGHT
                     const fontScale = scaleX
+                    const textWidthMultiplier = 1.25
                     ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
-                    ctx.fillText('HIGH SCORE!', canvas.width / 2, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText('HIGH SCORE!', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                    ctx.restore()
                     ctx.font = `bold ${32 * fontScale}px "Courier New", monospace`
-                    ctx.fillText(`${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText(`${gameStateRef.current.score}`, (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 20) * scaleY)
+                    ctx.restore()
                 } else {
                     ctx.font = 'bold 48px "Courier New", monospace'
                     ctx.fillText('HIGH SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60)
@@ -3954,8 +3997,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const scaleX = canvas.width / CANVAS_WIDTH
                     const scaleY = canvas.height / CANVAS_HEIGHT
                     const fontScale = scaleX
+                    const textWidthMultiplier = 1.25
                     ctx.font = `bold ${72 * fontScale}px "Courier New", monospace`
-                    ctx.fillText(countdown.toString(), canvas.width / 2, (CANVAS_HEIGHT / 2) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText(countdown.toString(), (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2) * scaleY)
+                    ctx.restore()
                 } else {
                     ctx.font = 'bold 72px "Courier New", monospace'
                     ctx.fillText(countdown.toString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2)
@@ -3973,6 +4020,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const scaleX = canvas.width / CANVAS_WIDTH
                     const scaleY = canvas.height / CANVAS_HEIGHT
                     const fontScale = scaleX
+                    const textWidthMultiplier = 1.25
                     
                     // Draw lives remaining text above countdown
                     ctx.fillStyle = '#FF0088'
@@ -3980,11 +4028,17 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const livesText = gameStateRef.current.lives === 1 
                         ? `You have 1 more life` 
                         : `You have ${gameStateRef.current.lives} more lives`
-                    ctx.fillText(livesText, canvas.width / 2, (CANVAS_HEIGHT / 2 - 100) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText(livesText, (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 100) * scaleY)
+                    ctx.restore()
                     
                     // Draw countdown number
                     ctx.font = `bold ${72 * fontScale}px "Courier New", monospace`
-                    ctx.fillText(deathCountdown.toString(), canvas.width / 2, (CANVAS_HEIGHT / 2) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText(deathCountdown.toString(), (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2) * scaleY)
+                    ctx.restore()
                 } else {
                     // Draw lives remaining text above countdown
                     ctx.fillStyle = '#FF0088'
@@ -4024,10 +4078,17 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         const scaleX = canvas.width / CANVAS_WIDTH
                         const scaleY = canvas.height / CANVAS_HEIGHT
                         const fontScale = scaleX
+                        const textWidthMultiplier = 1.25
                         ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
-                        ctx.fillText(`LEVEL ${level}`, canvas.width / 2, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText(`LEVEL ${level}`, (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        ctx.restore()
                         ctx.font = `${24 * fontScale}px "Courier New", monospace`
-                        ctx.fillText('BEGIN!', canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText('BEGIN!', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        ctx.restore()
                     } else {
                         ctx.font = 'bold 48px "Courier New", monospace'
                         ctx.fillText(`LEVEL ${level}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40)
@@ -4089,19 +4150,34 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const scaleX = canvas.width / CANVAS_WIDTH
                     const scaleY = canvas.height / CANVAS_HEIGHT
                     const fontScale = scaleX
-                    ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                    const textWidthMultiplier = 1.25 // Multiply text width by 1.25 on mobile
+                    
                     ctx.textAlign = 'center'
-                    ctx.fillText('HOSTILE SPACE', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80) * scaleY)
+                    
+                    // "HOSTILE SPACE" title
+                    ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText('HOSTILE SPACE', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 80) * scaleY)
+                    ctx.restore()
                     
                     // Music credit below title (half font size, lighter navy blue)
                     ctx.font = `${26 * fontScale}px "Courier New", monospace`
                     ctx.fillStyle = '#4169E1' // Lighter navy blue (royal blue)
-                    ctx.fillText('Music by neuronoizer', canvas.width / 2, (CANVAS_HEIGHT / 2 - 80 + 30) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText('Music by neuronoizer', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 80 + 30) * scaleY)
+                    ctx.restore()
                     
+                    // "TOUCH TO START"
                     ctx.font = `${24 * fontScale}px "Courier New", monospace`
                     ctx.fillStyle = '#FFFFFF' // Reset to white
-                    ctx.fillText('TOUCH TO START', canvas.width / 2, (CANVAS_HEIGHT / 2 + 20) * scaleY)
+                    ctx.save()
+                    ctx.scale(textWidthMultiplier, 1.0)
+                    ctx.fillText('TOUCH TO START', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 20) * scaleY)
+                    ctx.restore()
                     
+                    // Instruction text (not scaled)
                     ctx.font = `${14 * fontScale}px "Courier New", monospace`
                     ctx.fillText('Touch ship to move & shoot | Touch elsewhere to move only', canvas.width / 2, canvas.height - 30 * scaleY)
                     
@@ -4136,16 +4212,23 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         const scaleX = canvas.width / CANVAS_WIDTH
                         const scaleY = canvas.height / CANVAS_HEIGHT
                         const fontScale = scaleX
-                        ctx.font = `bold ${64 * fontScale}px "Courier New", monospace`
+                        const textWidthMultiplier = 1.25
                         ctx.textAlign = 'center'
-                        ctx.fillText('YOU WON!', canvas.width / 2, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                        ctx.font = `bold ${64 * fontScale}px "Courier New", monospace`
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText('YOU WON!', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 60) * scaleY)
+                        ctx.restore()
                         
                         ctx.fillStyle = '#FFFF00'
                         ctx.font = `${32 * fontScale}px "Courier New", monospace`
-                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 40) * scaleY)
                         if (!gameOverWait) {
-                            ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                            ctx.fillText('TOUCH TO RESTART', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 100) * scaleY)
                         }
+                        ctx.restore()
                         
                         ctx.textAlign = 'left'
                     } else {
@@ -4169,14 +4252,21 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         const scaleX = canvas.width / CANVAS_WIDTH
                         const scaleY = canvas.height / CANVAS_HEIGHT
                         const fontScale = scaleX
-                        ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                        const textWidthMultiplier = 1.25
                         ctx.textAlign = 'center'
-                        ctx.fillText('GAME OVER', canvas.width / 2, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        ctx.font = `bold ${48 * fontScale}px "Courier New", monospace`
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText('GAME OVER', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 - 40) * scaleY)
+                        ctx.restore()
                         
                         ctx.fillStyle = '#00FFFF'
                         ctx.font = `${24 * fontScale}px "Courier New", monospace`
-                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, canvas.width / 2, (CANVAS_HEIGHT / 2 + 40) * scaleY)
-                        ctx.fillText('TOUCH TO RESTART', canvas.width / 2, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                        ctx.save()
+                        ctx.scale(textWidthMultiplier, 1.0)
+                        ctx.fillText(`Final Score: ${gameStateRef.current.score}`, (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 40) * scaleY)
+                        ctx.fillText('TOUCH TO RESTART', (canvas.width / 2) / textWidthMultiplier, (CANVAS_HEIGHT / 2 + 100) * scaleY)
+                        ctx.restore()
                         
                         ctx.textAlign = 'left'
                     } else {
