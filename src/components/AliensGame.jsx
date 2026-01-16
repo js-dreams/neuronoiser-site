@@ -100,6 +100,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [soundEnabled, setSoundEnabled] = useState(true)
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
     const [deathCountdown, setDeathCountdown] = useState(0) // 0 = no death countdown, 3-1 = death countdown in progress
+    const [playerExplosionStartTime, setPlayerExplosionStartTime] = useState(null) // null = no explosion, timestamp = explosion in progress
     const [gameOverWait, setGameOverWait] = useState(false) // true = waiting 3 seconds after final death before allowing restart
     const [isCelebrating, setIsCelebrating] = useState(false)
     const [celebrationStartTime, setCelebrationStartTime] = useState(null)
@@ -141,8 +142,11 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const nextSuperWeaponSpawnFrameRef = useRef(null)
     const fireworksRef = useRef([])
     const bossExplosionRef = useRef([]) // Boss explosion particles
+    const playerExplosionRef = useRef([]) // Player explosion particles
     const enemyExplosionsRef = useRef([]) // Array of enemy explosion particle arrays: [{ particles: [...], startTime: number }, ...]
     const powerupExplosionsRef = useRef([]) // Array of powerup explosion particle arrays: [{ particles: [...], startTime: number }, ...]
+    const countdownTriggeredRef = useRef(false) // Track if we've already triggered the countdown for the current explosion
+    const isFinalDeathRef = useRef(false) // Track if this is the final death (lives === 0) - show explosion before game over
     const previousHighScoreRef = useRef(0)
     const hasCelebratedThisGameRef = useRef(false)
     const clockExtenderSpawnedForScoreMultiplierRef = useRef(false)
@@ -413,11 +417,35 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         return particles
     }, [])
 
+    // Create dramatic player explosion particles with fireball effect
+    const createPlayerExplosion = useCallback((centerX, centerY) => {
+        const colors = ['#00FFFF', '#00AAFF', '#0088FF', '#FF4400', '#FF8800', '#FFAA00', '#FF0000', '#FFFF00', '#FFFFFF'] // Cyan/blue to fire colors
+        const particles = []
+        // Create dramatic explosion with many particles
+        for (let i = 0; i < 150; i++) {
+            const angle = (Math.PI * 2 * i) / 150 + (Math.random() * 0.3 - 0.15) // Add some randomness
+            const speed = 2 + Math.random() * 10 // Varied speeds
+            const color = colors[Math.floor(Math.random() * colors.length)]
+            particles.push({
+                x: centerX,
+                y: centerY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1.0,
+                decay: 0.006 + Math.random() * 0.012, // Slower decay for dramatic effect
+                color: color,
+                size: 2 + Math.random() * 8 // Varied particle sizes
+            })
+        }
+        return particles
+    }, [])
+
     const startGame = useCallback(() => {
         // Clear any saved game state
         onClearGameState()
         setCountdown(0)
         setDeathCountdown(0)
+        setPlayerExplosionStartTime(null)
         setGameOverWait(false)
         setIsCelebrating(false)
         setCelebrationStartTime(null)
@@ -425,8 +453,11 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setBossExplosionStartTime(null)
         fireworksRef.current = []
         bossExplosionRef.current = []
+        playerExplosionRef.current = []
         enemyExplosionsRef.current = []
         powerupExplosionsRef.current = []
+        countdownTriggeredRef.current = false
+        isFinalDeathRef.current = false
         hasCelebratedThisGameRef.current = false
         clockExtenderSpawnedForScoreMultiplierRef.current = false
         clockExtenderSpawnedForMagicDefenceRef.current = false
@@ -708,14 +739,56 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         }
     }, [countdown])
 
-    // Death countdown timer
+    // Player explosion and death countdown timer
     useEffect(() => {
+        let checkInterval
+        
+        // Handle explosion: wait for particles to decay, then start countdown OR game over
+        if (playerExplosionStartTime && !deathCountdown) {
+            const checkExplosionFinished = () => {
+                // Only trigger once, even if this function is called multiple times
+                if (playerExplosionRef.current.length === 0 && !countdownTriggeredRef.current) {
+                    countdownTriggeredRef.current = true // Mark as triggered to prevent duplicate calls
+                    
+                    // If this is the final death, show game over after explosion
+                    if (isFinalDeathRef.current) {
+                        // Clear explosion state
+                        setPlayerExplosionStartTime(null)
+                        playerExplosionRef.current = []
+                        isFinalDeathRef.current = false
+                        // Trigger game over
+                        gameOver()
+                    } else {
+                        // Normal death: start countdown
+                        // Keep playerExplosionStartTime set until countdown actually starts (prevents flash)
+                        setDeathCountdown(3)
+                    }
+                    
+                    if (checkInterval) {
+                        clearInterval(checkInterval)
+                    }
+                }
+            }
+            
+            // Check immediately and periodically
+            checkExplosionFinished()
+            checkInterval = setInterval(checkExplosionFinished, 50)
+        }
+        
+        // Handle death countdown
         if (deathCountdown > 0) {
             const timer = setTimeout(() => {
                 if (deathCountdown > 1) {
                     setDeathCountdown(deathCountdown - 1)
                 } else {
                     setDeathCountdown(0)
+                    // Clear explosion state in next frame to prevent any flash (countdown completed)
+                    setTimeout(() => {
+                        setPlayerExplosionStartTime(null)
+                        playerExplosionRef.current = []
+                        countdownTriggeredRef.current = false // Reset for next explosion
+                        isFinalDeathRef.current = false // Reset for next explosion
+                    }, 0)
                     // Clear all enemies and bullets, reset player position
                     enemiesRef.current = []
                     bulletsRef.current = []
@@ -767,7 +840,11 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             }, 1000)
             return () => clearTimeout(timer)
         }
-    }, [deathCountdown, level, bossExplosionStartTime])
+        
+        return () => {
+            if (checkInterval) clearInterval(checkInterval)
+        }
+    }, [deathCountdown, playerExplosionStartTime, level, bossExplosionStartTime, gameOver])
 
     // Celebration timer (5 seconds)
     useEffect(() => {
@@ -1405,6 +1482,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.fillRect(star.x, star.y, star.size, star.size)
             })
 
+            // Freeze game updates during explosion, but keep drawing
             if (gameStateRef.current.gameState === 'playing' && countdown === 0 && deathCountdown === 0 && !showHelpDialogRef.current) {
                 frameCountRef.current++
 
@@ -1486,11 +1564,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 const megaEnemySpawnChance = getMegaEnemySpawnChance(level)
                 const megaEnemyFireRate = getMegaEnemyFireRate(level)
 
-                // Player movement
+                // Player movement (disabled during explosion)
                 const player = playerRef.current
+                const isExploding = playerExplosionStartTime || playerExplosionRef.current.length > 0
                 
-                // Touch controls (20% faster on mobile)
-                if (touchRef.current.isTouching && touchRef.current.x !== null && touchRef.current.y !== null) {
+                // Touch controls (20% faster on mobile) - disabled during explosion
+                if (!isExploding && touchRef.current.isTouching && touchRef.current.x !== null && touchRef.current.y !== null) {
                     const targetX = Math.max(20, Math.min(CANVAS_WIDTH - 20, touchRef.current.x))
                     const targetY = Math.max(CANVAS_HEIGHT / 2, Math.min(CANVAS_HEIGHT - 20, touchRef.current.y))
                     const dx = targetX - player.x
@@ -1507,8 +1586,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         player.x = targetX
                         player.y = targetY
                     }
-                } else {
-                    // Keyboard controls
+                } else if (!isExploding) {
+                    // Keyboard controls - disabled during explosion
                     if (keysRef.current['ArrowLeft'] || keysRef.current['a'] || keysRef.current['A']) {
                         player.x = Math.max(20, player.x - PLAYER_SPEED * deltaTime)
                     }
@@ -1523,8 +1602,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     }
                 }
 
-                // Shooting
-                const shouldShoot = keysRef.current[' '] || touchRef.current.shootPressed
+                // Shooting (disabled during explosion)
+                const shouldShoot = !isExploding && (keysRef.current[' '] || touchRef.current.shootPressed)
                 if (shouldShoot) {
                     const currentTime = performance.now()
                     if (superWeaponActive) {
@@ -1753,8 +1832,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             return false
                         }
                         
-                        // Collision with player
-                        if (
+                        // Collision with player (disabled during explosion)
+                        const isExploding = playerExplosionStartTime || playerExplosionRef.current.length > 0
+                        if (!isExploding &&
                             bullet.x < player.x + 20 &&
                             bullet.x + bullet.width > player.x - 20 &&
                             bullet.y < player.y + 20 &&
@@ -1785,11 +1865,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     const newLives = prev - 1
                                     // Lose life sound
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
+                                    // Create dramatic player explosion for all deaths (including final)
+                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y)
+                                    setPlayerExplosionStartTime(Date.now())
+                                    // Track if this is the final death - will trigger gameOver after explosion
                                     if (newLives <= 0) {
-                                        gameOver()
+                                        isFinalDeathRef.current = true
                                     } else {
-                                        // Start 3-second death countdown before resuming with next life
-                                        setDeathCountdown(3)
+                                        isFinalDeathRef.current = false
                                     }
                                     return newLives
                                 })
@@ -2120,12 +2203,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     .filter(powerup => {
                         if (powerup.y > CANVAS_HEIGHT) return false
                         
-                        // Collision with player (collect powerup)
+                        // Collision with player (collect powerup) - disabled during explosion
+                        const isExploding = playerExplosionStartTime || playerExplosionRef.current.length > 0
                         const distance = Math.sqrt(
                             Math.pow(powerup.x - player.x, 2) + 
                             Math.pow(powerup.y - player.y, 2)
                         )
-                        if (distance < powerup.size + 20) {
+                        if (!isExploding && distance < powerup.size + 20) {
                             setLives(prev => prev + 1)
                             // Powerup collect sound
                             if (soundEnabledRef.current) {
@@ -2392,8 +2476,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     })
                     .filter(enemy => {
                         if (enemy.y > CANVAS_HEIGHT) return false
-                        // Collision with player
-                        if (
+                        // Collision with player (disabled during explosion)
+                        const isExploding = playerExplosionStartTime || playerExplosionRef.current.length > 0
+                        if (!isExploding &&
                             enemy.x < player.x + 20 &&
                             enemy.x + enemy.width > player.x - 20 &&
                             enemy.y < player.y + 20 &&
@@ -2411,11 +2496,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     const newLives = prev - 1
                                     // Lose life sound
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
+                                    // Create dramatic player explosion for all deaths (including final)
+                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y)
+                                    setPlayerExplosionStartTime(Date.now())
+                                    // Track if this is the final death - will trigger gameOver after explosion
                                     if (newLives <= 0) {
-                                        gameOver()
+                                        isFinalDeathRef.current = true
                                     } else {
-                                        // Start 3-second death countdown before resuming with next life
-                                        setDeathCountdown(3)
+                                        isFinalDeathRef.current = false
                                     }
                                     return newLives
                                 })
@@ -3168,8 +3256,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     return true
                 })
 
-                // Draw player (enhanced visual appearance)
-                const playerWidth = isMobile ? 15 * aspectRatio : 15
+                // Draw player ONLY if explosion never started AND countdown not active
+                // Hide ship immediately when explosion starts (check ref synchronously) and keep hidden until countdown completes
+                const hasExplosion = playerExplosionStartTime !== null || playerExplosionRef.current.length > 0
+                const isInCountdown = deathCountdown > 0
+                if (!hasExplosion && !isInCountdown) {
+                    const playerWidth = isMobile ? 15 * aspectRatio : 15
                 ctx.save()
                 
                 // Outer glow/shadow layer
@@ -3247,9 +3339,10 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.globalAlpha = 1.0
                 
                 ctx.restore()
+                }
 
-                    // Draw magic defence shield (circular, fading as time runs out)
-                if (magicDefenceActive && magicDefenceEndTime) {
+                    // Draw magic defence shield (circular, fading as time runs out) - hide during explosion/countdown
+                if (magicDefenceActive && magicDefenceEndTime && playerExplosionStartTime === null && deathCountdown === 0) {
                     const timeRemaining = (magicDefenceEndTime - Date.now()) / 1000
                     const maxTime = POWERUP_DURATION_SECONDS
                     const opacity = Math.max(0.3, timeRemaining / maxTime) // Fade from 1.0 to 0.3
@@ -3874,6 +3967,44 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 })
             }
 
+            // Update and draw player explosion
+            // Update and draw player explosion
+            if (playerExplosionStartTime || playerExplosionRef.current.length > 0) {
+                // Update explosion particles
+                if (playerExplosionRef.current.length > 0) {
+                    playerExplosionRef.current = playerExplosionRef.current
+                        .map(particle => ({
+                            ...particle,
+                            x: particle.x + particle.vx * deltaTime,
+                            y: particle.y + particle.vy * deltaTime,
+                            vy: particle.vy + 0.1 * deltaTime, // slight gravity
+                            life: particle.life - particle.decay
+                        }))
+                        .filter(particle => particle.life > 0)
+                    
+                    // If all particles decayed, clear the explosion state (countdown will start via useEffect)
+                    if (playerExplosionRef.current.length === 0 && playerExplosionStartTime) {
+                        // State will be cleared when countdown starts
+                    }
+                }
+                
+                // Draw explosion particles
+                if (playerExplosionRef.current.length > 0) {
+                    playerExplosionRef.current.forEach(particle => {
+                        ctx.save()
+                        ctx.globalAlpha = particle.life
+                        ctx.fillStyle = particle.color
+                        ctx.shadowBlur = 12
+                        ctx.shadowColor = particle.color
+                        ctx.beginPath()
+                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.shadowBlur = 0
+                        ctx.restore()
+                    })
+                }
+            }
+
             // Update and draw enemy explosions
             enemyExplosionsRef.current = enemyExplosionsRef.current
                 .map(explosion => {
@@ -4357,7 +4488,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 cancelAnimationFrame(animationFrameRef.current)
             }
         }
-    }, [gameState, highScore, gameOver, victory, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, isVictory, gameOverWait, createFireworks, createBossExplosion, createEnemyExplosion, createMegaEnemyExplosion, createPowerupExplosion, bossExplosionStartTime, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
+    }, [gameState, highScore, gameOver, victory, startGame, isMobile, level, getEnemySpeed, getEnemySpawnRate, getEnemyHorizontalSpeed, getMegaEnemySpawnChance, getMegaEnemyFireRate, countdown, deathCountdown, isCelebrating, isVictory, gameOverWait, createFireworks, createBossExplosion, createEnemyExplosion, createMegaEnemyExplosion, createPowerupExplosion, createPlayerExplosion, bossExplosionStartTime, playerExplosionStartTime, scoreMultiplier, scoreMultiplierEndTime, magicDefenceActive, magicDefenceEndTime, superWeaponActive, superWeaponEndTime])
 
     // Show landscape orientation warning for mobile devices (but not in test environment)
     // Detect test environment: import.meta.vitest is available in Vitest, or process.env.NODE_ENV === 'test'
