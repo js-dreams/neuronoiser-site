@@ -3168,9 +3168,14 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     return true
                 })
 
-                // Draw player
-                ctx.fillStyle = '#00FFFF'
+                // Draw player (enhanced visual appearance)
                 const playerWidth = isMobile ? 15 * aspectRatio : 15
+                ctx.save()
+                
+                // Outer glow/shadow layer
+                ctx.shadowBlur = 20
+                ctx.shadowColor = '#00FFFF'
+                ctx.fillStyle = '#00FFFF'
                 ctx.beginPath()
                 ctx.moveTo(player.x, player.y - 25)
                 ctx.lineTo(player.x - playerWidth, player.y + 15)
@@ -3179,11 +3184,69 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 ctx.closePath()
                 ctx.fill()
                 
-                // Player glow
-                ctx.shadowBlur = 15
-                ctx.shadowColor = '#00FFFF'
-                ctx.fill()
+                // Base ship shape with gradient
+                const gradient = ctx.createLinearGradient(player.x, player.y - 25, player.x, player.y + 15)
+                gradient.addColorStop(0, '#00FFFF') // Bright cyan at top
+                gradient.addColorStop(0.5, '#00AAFF') // Medium blue in middle
+                gradient.addColorStop(1, '#0088FF') // Darker blue at bottom
                 ctx.shadowBlur = 0
+                ctx.fillStyle = gradient
+                ctx.fill()
+                
+                // Top highlight (bright center line at top)
+                ctx.fillStyle = '#FFFFFF'
+                ctx.globalAlpha = 0.6
+                ctx.beginPath()
+                ctx.moveTo(player.x, player.y - 25)
+                ctx.lineTo(player.x - playerWidth * 0.3, player.y - 10)
+                ctx.lineTo(player.x, player.y - 5)
+                ctx.lineTo(player.x + playerWidth * 0.3, player.y - 10)
+                ctx.closePath()
+                ctx.fill()
+                ctx.globalAlpha = 1.0
+                
+                // Side highlights (subtle edge highlights)
+                ctx.fillStyle = '#88EEFF'
+                ctx.globalAlpha = 0.4
+                ctx.beginPath()
+                ctx.moveTo(player.x - playerWidth * 0.7, player.y + 2)
+                ctx.lineTo(player.x - playerWidth, player.y + 15)
+                ctx.lineTo(player.x - playerWidth * 0.8, player.y + 10)
+                ctx.lineTo(player.x - playerWidth * 0.6, player.y + 5)
+                ctx.closePath()
+                ctx.fill()
+                
+                ctx.beginPath()
+                ctx.moveTo(player.x + playerWidth * 0.7, player.y + 2)
+                ctx.lineTo(player.x + playerWidth, player.y + 15)
+                ctx.lineTo(player.x + playerWidth * 0.8, player.y + 10)
+                ctx.lineTo(player.x + playerWidth * 0.6, player.y + 5)
+                ctx.closePath()
+                ctx.fill()
+                ctx.globalAlpha = 1.0
+                
+                // Center line detail (subtle vertical line down the center)
+                ctx.strokeStyle = '#00FFFF'
+                ctx.lineWidth = 1
+                ctx.globalAlpha = 0.5
+                ctx.beginPath()
+                ctx.moveTo(player.x, player.y - 25)
+                ctx.lineTo(player.x, player.y + 5)
+                ctx.stroke()
+                ctx.globalAlpha = 1.0
+                
+                // Engine glow (bottom)
+                ctx.fillStyle = '#0088FF'
+                ctx.globalAlpha = 0.7
+                ctx.beginPath()
+                ctx.moveTo(player.x, player.y + 5)
+                ctx.lineTo(player.x - playerWidth * 0.5, player.y + 15)
+                ctx.lineTo(player.x + playerWidth * 0.5, player.y + 15)
+                ctx.closePath()
+                ctx.fill()
+                ctx.globalAlpha = 1.0
+                
+                ctx.restore()
 
                     // Draw magic defence shield (circular, fading as time runs out)
                 if (magicDefenceActive && magicDefenceEndTime) {
