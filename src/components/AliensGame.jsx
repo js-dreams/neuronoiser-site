@@ -1466,7 +1466,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 // Player movement
                 const player = playerRef.current
                 
-                // Touch controls
+                // Touch controls (20% faster on mobile)
                 if (touchRef.current.isTouching && touchRef.current.x !== null && touchRef.current.y !== null) {
                     const targetX = Math.max(20, Math.min(CANVAS_WIDTH - 20, touchRef.current.x))
                     const targetY = Math.max(CANVAS_HEIGHT / 2, Math.min(CANVAS_HEIGHT - 20, touchRef.current.y))
@@ -1474,9 +1474,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     const dy = targetY - player.y
                     const distance = Math.sqrt(dx * dx + dy * dy)
                     
-                    if (distance > PLAYER_SPEED * deltaTime) {
-                        player.x += (dx / distance) * PLAYER_SPEED * deltaTime
-                        player.y += (dy / distance) * PLAYER_SPEED * deltaTime
+                    // 20% faster on mobile (1.2x multiplier)
+                    const playerSpeed = isMobile ? PLAYER_SPEED * 1.2 : PLAYER_SPEED
+                    
+                    if (distance > playerSpeed * deltaTime) {
+                        player.x += (dx / distance) * playerSpeed * deltaTime
+                        player.y += (dy / distance) * playerSpeed * deltaTime
                     } else {
                         player.x = targetX
                         player.y = targetY
