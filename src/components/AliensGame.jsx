@@ -134,6 +134,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const touchRef = useRef({ x: null, y: null, isTouching: false, shootPressed: false })
     const levelStartTimeRef = useRef(null)
     const levelAnnouncementStartTimeRef = useRef(null)
+    const helpDialogPauseStartTimeRef = useRef(null) // Track when help dialog opens to pause level timer
     const nextPowerupSpawnFrameRef = useRef(null)
     const nextScoreBonusSpawnFrameRef = useRef(null)
     const nextMagicDefenceSpawnFrameRef = useRef(null)
@@ -211,17 +212,23 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         // Old formula with piecewise function
         if (oldLevel <= 3) {
             // Level 1-3: Slow fire rate
-            return 700 - (oldLevel - 1) * 100
+            // Level 1: 8% faster (700 * 0.92 = 644 frames)
+            const baseRate = 700 - (oldLevel - 1) * 100
+            if (oldLevel === 1) {
+                return Math.round(baseRate * 0.92) // 8% more rapid (fewer frames = faster)
+            }
+            return baseRate
         } else if (oldLevel <= 6) {
             // Level 4-6: Medium fire rate
             return 150 - (oldLevel - 4) * 10
         } else {
             // Level 7-8: Rapid fire (old level 8, now level 10)
-            // At highest level (oldLevel 8), reduce fire rate to 90% (multiply frames by 1/0.9)
             const baseFireRate = 75 - (oldLevel - 7) * 15
             if (oldLevel >= 8) {
-                // At maximum level, reduce fire rate to 90% (increase frames by ~11%)
-                return Math.round(baseFireRate / 0.9)
+                // At maximum level: current rate after /0.9 is ~66.67 frames
+                // 86% of current rate means 66.67 / 0.86 = ~77.5 frames (slower = more frames)
+                const currentMaxRate = baseFireRate / 0.9
+                return Math.round(currentMaxRate / 0.86)
             }
             return baseFireRate
         }
@@ -877,6 +884,19 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         soundEnabledRef.current = soundEnabled
         showHelpDialogRef.current = showHelpDialog
     }, [gameState, score, level, lives, soundEnabled, showHelpDialog])
+
+    // Pause/resume level timer when help dialog opens/closes
+    useEffect(() => {
+        if (showHelpDialog && levelStartTimeRef.current) {
+            // Help dialog opened: record pause start time
+            helpDialogPauseStartTimeRef.current = Date.now()
+        } else if (!showHelpDialog && helpDialogPauseStartTimeRef.current && levelStartTimeRef.current) {
+            // Help dialog closed: adjust level start time to account for pause duration
+            const pauseDuration = Date.now() - helpDialogPauseStartTimeRef.current
+            levelStartTimeRef.current = levelStartTimeRef.current + pauseDuration
+            helpDialogPauseStartTimeRef.current = null
+        }
+    }, [showHelpDialog])
 
     // Update high score during gameplay when current score exceeds it
     useEffect(() => {
@@ -1795,7 +1815,8 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                 }
 
                 // Spawn life powerups at random intervals (approximately once per level)
-                if (nextPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextPowerupSpawnFrameRef.current) {
+                // Only spawn if none currently exists on screen
+                if (nextPowerupSpawnFrameRef.current !== null && frameCountRef.current >= nextPowerupSpawnFrameRef.current && lifePowerupsRef.current.length === 0) {
                     // Generate spawn position that avoids player's x position and player bullets/missiles
                     const PLAYER_AVOID_ZONE = 80 // Avoid spawning within 80 pixels of player x position
                     const BULLET_AVOID_ZONE = 50 // Avoid spawning within 50 pixels of bullet/missile x position
@@ -1825,19 +1846,21 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         }
                     } while (spawnX === null && attempts < 30)
                     
+                    // Clear the spawn frame whether we succeeded or failed to prevent multiple spawn attempts
+                    nextPowerupSpawnFrameRef.current = null
+                    
                     if (spawnX !== null) {
                         lifePowerupsRef.current.push({
                             x: spawnX,
                             y: -LIFE_POWERUP_SIZE,
                             size: LIFE_POWERUP_SIZE
                         })
-                        // Clear the spawn frame - next level advance will schedule a new one
-                        nextPowerupSpawnFrameRef.current = null
                     }
                 }
 
                 // Spawn 3X score bonus powerups at random intervals (approximately once per level)
-                if (nextScoreBonusSpawnFrameRef.current !== null && frameCountRef.current >= nextScoreBonusSpawnFrameRef.current) {
+                // Only spawn if none currently exists on screen
+                if (nextScoreBonusSpawnFrameRef.current !== null && frameCountRef.current >= nextScoreBonusSpawnFrameRef.current && scoreBonusPowerupsRef.current.length === 0) {
                     // Generate spawn position that avoids player's x position and player bullets/missiles
                     const PLAYER_AVOID_ZONE = 80
                     const BULLET_AVOID_ZONE = 50
@@ -1857,6 +1880,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         })
                         if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
                     } while (spawnX === null && attempts < 30)
+                    
+                    // Clear the spawn frame whether we succeeded or failed to prevent multiple spawn attempts
+                    nextScoreBonusSpawnFrameRef.current = null
                     
                     if (spawnX !== null) {
                         scoreBonusPowerupsRef.current.push({
@@ -1864,13 +1890,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             y: -LIFE_POWERUP_SIZE,
                             size: LIFE_POWERUP_SIZE
                         })
-                        // Clear the spawn frame - next level advance will schedule a new one
-                        nextScoreBonusSpawnFrameRef.current = null
                     }
                 }
 
                 // Spawn magic defence powerups at random intervals (approximately once per level)
-                if (nextMagicDefenceSpawnFrameRef.current !== null && frameCountRef.current >= nextMagicDefenceSpawnFrameRef.current) {
+                // Only spawn if none currently exists on screen
+                if (nextMagicDefenceSpawnFrameRef.current !== null && frameCountRef.current >= nextMagicDefenceSpawnFrameRef.current && magicDefencePowerupsRef.current.length === 0) {
                     // Generate spawn position that avoids player's x position and player bullets/missiles
                     const PLAYER_AVOID_ZONE = 80
                     const BULLET_AVOID_ZONE = 50
@@ -1890,6 +1915,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         })
                         if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
                     } while (spawnX === null && attempts < 30)
+                    
+                    // Clear the spawn frame whether we succeeded or failed to prevent multiple spawn attempts
+                    nextMagicDefenceSpawnFrameRef.current = null
                     
                     if (spawnX !== null) {
                         magicDefencePowerupsRef.current.push({
@@ -1897,13 +1925,12 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             y: -LIFE_POWERUP_SIZE,
                             size: LIFE_POWERUP_SIZE
                         })
-                        // Clear the spawn frame - next level advance will schedule a new one
-                        nextMagicDefenceSpawnFrameRef.current = null
                     }
                 }
 
                 // Spawn super weapon powerups at random intervals (approximately once per level)
-                if (nextSuperWeaponSpawnFrameRef.current !== null && frameCountRef.current >= nextSuperWeaponSpawnFrameRef.current) {
+                // Only spawn if none currently exists on screen
+                if (nextSuperWeaponSpawnFrameRef.current !== null && frameCountRef.current >= nextSuperWeaponSpawnFrameRef.current && superWeaponPowerupsRef.current.length === 0) {
                     // Generate spawn position that avoids player's x position and player bullets/missiles
                     const PLAYER_AVOID_ZONE = 80
                     const BULLET_AVOID_ZONE = 50
@@ -1924,14 +1951,15 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         if (tooCloseToPlayer || hasBulletInPath || hasMissileInPath) spawnX = null
                     } while (spawnX === null && attempts < 30)
                     
+                    // Clear the spawn frame whether we succeeded or failed to prevent multiple spawn attempts
+                    nextSuperWeaponSpawnFrameRef.current = null
+                    
                     if (spawnX !== null) {
                         superWeaponPowerupsRef.current.push({
                             x: spawnX,
                             y: -LIFE_POWERUP_SIZE,
                             size: LIFE_POWERUP_SIZE
                         })
-                        // Clear the spawn frame - next level advance will schedule a new one
-                        nextSuperWeaponSpawnFrameRef.current = null
                     }
                 }
 

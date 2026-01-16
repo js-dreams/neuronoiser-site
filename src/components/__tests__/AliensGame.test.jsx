@@ -72,7 +72,7 @@ describe('AliensGame', () => {
       renderAliensGame()
 
       // Ensure desktop view is rendered (back button presence confirms desktop view)
-      screen.getByText(/Back to Home/i)
+      screen.getByText(/← neuronoiser.com/i)
 
       // Try using getByTestId (canvas elements don't have accessible roles)
       const canvas = screen.getByTestId('game-canvas')
@@ -85,7 +85,7 @@ describe('AliensGame', () => {
       const { container } = renderAliensGame()
 
       // Ensure desktop view is rendered (back button presence confirms desktop view)
-      screen.getByText(/Back to Home/i)
+      screen.getByText(/← neuronoiser.com/i)
 
       const gameContainer = container.querySelector('.border-2.border-neon-cyan')
       expect(gameContainer).toBeInTheDocument()
@@ -96,14 +96,14 @@ describe('AliensGame', () => {
     it('renders back button on desktop', () => {
       renderAliensGame()
 
-      const backButton = screen.getByText(/Back to Home/i)
+      const backButton = screen.getByText(/← neuronoiser.com/i)
       expect(backButton).toBeInTheDocument()
     })
 
     it('back button navigates to home', () => {
       renderAliensGame()
 
-      const backButton = screen.getByText(/Back to Home/i)
+      const backButton = screen.getByText(/← neuronoiser.com/i)
       backButton.click()
 
       expect(mockNavigate).toHaveBeenCalledWith('/')
@@ -112,7 +112,7 @@ describe('AliensGame', () => {
     it('renders back button with correct styling on desktop', () => {
       renderAliensGame()
 
-      const backButton = screen.getByText(/Back to Home/i)
+      const backButton = screen.getByText(/← neuronoiser.com/i)
       expect(backButton).toHaveClass('text-neon-cyan', 'font-mono')
     })
   })
@@ -140,7 +140,7 @@ describe('AliensGame', () => {
 
       renderAliensGame()
 
-      const backButton = screen.getByText(/← Back/i)
+      const backButton = screen.getByLabelText(/Back to home/i)
       expect(backButton).toBeInTheDocument()
       expect(backButton).toHaveClass('absolute', 'top-2', 'right-4')
     })
@@ -161,7 +161,7 @@ describe('AliensGame', () => {
 
       vi.clearAllMocks()
 
-      const backButton = screen.getByText(/Back to Home/i)
+      const backButton = screen.getByText(/← neuronoiser.com/i)
       backButton.click()
 
       expect(global.gtag).toHaveBeenCalledWith('event', 'game_exit', {
