@@ -418,7 +418,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     }, [])
 
     // Create dramatic player explosion particles with fireball effect
-    const createPlayerExplosion = useCallback((centerX, centerY) => {
+    const createPlayerExplosion = useCallback((centerX, centerY, aspectRatio = 1) => {
         const colors = ['#00FFFF', '#00AAFF', '#0088FF', '#FF4400', '#FF8800', '#FFAA00', '#FF0000', '#FFFF00', '#FFFFFF'] // Cyan/blue to fire colors
         const particles = []
         // Create dramatic explosion with many particles
@@ -429,7 +429,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
             particles.push({
                 x: centerX,
                 y: centerY,
-                vx: Math.cos(angle) * speed,
+                vx: Math.cos(angle) * speed * aspectRatio, // Multiply horizontal velocity by aspectRatio for wider explosion on mobile
                 vy: Math.sin(angle) * speed,
                 life: 1.0,
                 decay: 0.006 + Math.random() * 0.012, // Slower decay for dramatic effect
@@ -1866,7 +1866,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     // Lose life sound
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
                                     // Create dramatic player explosion for all deaths (including final)
-                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y)
+                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y, aspectRatio)
                                     setPlayerExplosionStartTime(Date.now())
                                     // Track if this is the final death - will trigger gameOver after explosion
                                     if (newLives <= 0) {
@@ -2497,7 +2497,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     // Lose life sound
                                     if (soundEnabledRef.current) createSound(150, 0.3, 'sawtooth', 0.25)
                                     // Create dramatic player explosion for all deaths (including final)
-                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y)
+                                    playerExplosionRef.current = createPlayerExplosion(player.x, player.y, aspectRatio)
                                     setPlayerExplosionStartTime(Date.now())
                                     // Track if this is the final death - will trigger gameOver after explosion
                                     if (newLives <= 0) {
@@ -3997,7 +3997,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                         ctx.shadowBlur = 12
                         ctx.shadowColor = particle.color
                         ctx.beginPath()
-                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                        if (isMobile) {
+                            const particleRadiusX = particle.size * aspectRatio
+                            const particleRadiusY = particle.size
+                            ctx.ellipse(particle.x, particle.y, particleRadiusX, particleRadiusY, 0, 0, Math.PI * 2)
+                        } else {
+                            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+                        }
                         ctx.fill()
                         ctx.shadowBlur = 0
                         ctx.restore()
