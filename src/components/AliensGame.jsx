@@ -96,7 +96,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const [isMobile, setIsMobile] = useState(false)
     const [isLandscapeMobile, setIsLandscapeMobile] = useState(false)
     const [level, setLevel] = useState(1)
-    const [lives, setLives] = useState(3)
+    const [lives, setLives] = useState(1)
     const [soundEnabled, setSoundEnabled] = useState(true)
     const [countdown, setCountdown] = useState(0) // 0 = no countdown, 3-1 = countdown in progress
     const [deathCountdown, setDeathCountdown] = useState(0) // 0 = no death countdown, 3-1 = death countdown in progress
@@ -472,7 +472,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
         setGameState('playing')
         setScore(0)
         setLevel(1)
-        setLives(3)
+        setLives(1)
         playerRef.current = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 80 }
         bulletsRef.current = []
         enemiesRef.current = []
