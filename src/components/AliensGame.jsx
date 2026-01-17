@@ -2254,8 +2254,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 })
                             }
                             // Activate 3X score multiplier for 20 seconds
+                            // Only reset timer if not already active, or if remaining time is <= 20 seconds
+                            const remainingTime = scoreMultiplierEndTime ? (scoreMultiplierEndTime - Date.now()) / 1000 : 0
+                            const shouldResetTimer = !isAlreadyActive || remainingTime <= 20
                             setScoreMultiplier(3)
-                            setScoreMultiplierEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            if (shouldResetTimer) {
+                                setScoreMultiplierEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            }
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForScoreMultiplierRef.current = Math.random() < 0.5
                             // Powerup collect sound (if not bonus)
@@ -2302,8 +2307,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 })
                             }
                             // Activate magic defence for 20 seconds
+                            // Only reset timer if not already active, or if remaining time is <= 20 seconds
+                            const remainingTime = magicDefenceEndTime ? (magicDefenceEndTime - Date.now()) / 1000 : 0
+                            const shouldResetTimer = !isAlreadyActive || remainingTime <= 20
                             setMagicDefenceActive(true)
-                            setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            if (shouldResetTimer) {
+                                setMagicDefenceEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            }
                             bossShieldHitsRef.current = 0 // Reset boss shield hits counter
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForMagicDefenceRef.current = Math.random() < 0.5
@@ -2351,8 +2361,13 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                 })
                             }
                             // Activate super weapon for 20 seconds
+                            // Only reset timer if not already active, or if remaining time is <= 20 seconds
+                            const remainingTime = superWeaponEndTime ? (superWeaponEndTime - Date.now()) / 1000 : 0
+                            const shouldResetTimer = !isAlreadyActive || remainingTime <= 20
                             setSuperWeaponActive(true)
-                            setSuperWeaponEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            if (shouldResetTimer) {
+                                setSuperWeaponEndTime(Date.now() + POWERUP_DURATION_SECONDS * 1000)
+                            }
                             // 50% chance this powerup won't get a clock extender
                             clockExtenderDisabledForSuperWeaponRef.current = Math.random() < 0.5
                             // Powerup collect sound (if not bonus)
