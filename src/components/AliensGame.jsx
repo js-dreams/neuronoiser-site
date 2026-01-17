@@ -127,6 +127,7 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
     const superWeaponPowerupsRef = useRef([])
     const clockExtenderPowerupsRef = useRef([])
     const homingMissilesRef = useRef([])
+    const enemyIdCounterRef = useRef(0) // Unique ID counter for enemies
     const keysRef = useRef({})
     const starsRef = useRef([])
     const frameCountRef = useRef(0)
@@ -1617,19 +1618,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             // Check if boss is already targeted
                             const bossTargeted = homingMissilesRef.current.some(m => m.targetBoss === true)
                             
-                            // Find which enemies are already targeted by existing missiles
-                            const targetedEnemyIndices = new Set(
+                            // Find which enemy IDs are already targeted by existing missiles
+                            const targetedEnemyIds = new Set(
                                 homingMissilesRef.current
-                                    .filter(m => m.targetEnemyIndex !== null && 
-                                                m.targetEnemyIndex < enemiesRef.current.length &&
-                                                enemiesRef.current[m.targetEnemyIndex] !== undefined)
-                                    .map(m => m.targetEnemyIndex)
+                                    .filter(m => m.targetEnemyId !== null)
+                                    .map(m => m.targetEnemyId)
                             )
                             
-                            // Find enemies that are not yet targeted
+                            // Find enemies that are not yet targeted (by ID)
                             const availableEnemies = enemiesRef.current
-                                .map((enemy, index) => ({ enemy, index }))
-                                .filter(({ index }) => !targetedEnemyIndices.has(index))
+                                .filter(enemy => !targetedEnemyIds.has(enemy.id))
                             
                             // Fire missiles for available enemies (max 3)
                             let missileCount = Math.min(3, availableEnemies.length)
@@ -1642,8 +1640,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                     y: player.y - 30,
                                     width: 6,
                                     height: 10,
-                                    targetEnemyIndex: null,
-                                    targetBoss: true // Mark as targeting boss
+                                    targetEnemyId: null, // Use enemy ID instead of index
+                                    targetBoss: true, // Mark as targeting boss
+                                    targetLocked: true // Boss target is immediately locked
                                 })
                                 // Super weapon shoot sound (slightly different)
                                 if (soundEnabledRef.current) createShootSound()
@@ -1656,8 +1655,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                                         y: player.y - 30,
                                         width: 6,
                                         height: 10,
-                                        targetEnemyIndex: null, // Will be assigned during update
-                                        targetBoss: false
+                                        targetEnemyId: null, // Will be assigned during update (uses enemy ID, not index)
+                                        targetBoss: false,
+                                        targetLocked: false // Will be locked when target is assigned
                                     })
                                 }
                                 // Super weapon shoot sound (slightly different)
@@ -1690,58 +1690,56 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
 
                 // Update homing missiles
                 if (enemiesRef.current.length > 0 || bossRef.current) {
-                    // Assign targets to missiles that don't have one (ensure unique targets)
-                    const assignedTargets = new Set(
+                    // Get set of enemy IDs already targeted by locked missiles
+                    const targetedEnemyIds = new Set(
                         homingMissilesRef.current
-                            .filter(m => m.targetEnemyIndex !== null && 
-                                        m.targetEnemyIndex < enemiesRef.current.length &&
-                                        enemiesRef.current[m.targetEnemyIndex] !== undefined)
-                            .map(m => m.targetEnemyIndex)
+                            .filter(m => m.targetLocked && m.targetEnemyId !== null)
+                            .map(m => m.targetEnemyId)
                     )
                     
                     homingMissilesRef.current.forEach(missile => {
-                        // Skip if already targeting boss
+                        // Skip if already locked onto a target (cannot change target once locked)
+                        if (missile.targetLocked) return
+                        
+                        // Skip if targeting boss (already locked on creation)
                         if (missile.targetBoss) return
                         
-                        if (missile.targetEnemyIndex === null || 
-                            missile.targetEnemyIndex >= enemiesRef.current.length ||
-                            enemiesRef.current[missile.targetEnemyIndex] === undefined) {
-                            // Find nearest enemy that isn't already targeted
-                            let bestEnemyIndex = -1
-                            let bestDistance = Infinity
-                            
-                            enemiesRef.current.forEach((enemy, index) => {
-                                if (!assignedTargets.has(index)) {
-                                    const distance = Math.sqrt(
-                                        Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
-                                        Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
-                                    )
-                                    
-                                    if (distance < bestDistance) {
-                                        bestEnemyIndex = index
-                                        bestDistance = distance
-                                    }
+                        // Need to find a target - find nearest enemy not already targeted
+                        let bestEnemy = null
+                        let bestDistance = Infinity
+                        
+                        enemiesRef.current.forEach(enemy => {
+                            if (!targetedEnemyIds.has(enemy.id)) {
+                                const distance = Math.sqrt(
+                                    Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
+                                    Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
+                                )
+                                
+                                if (distance < bestDistance) {
+                                    bestEnemy = enemy
+                                    bestDistance = distance
+                                }
+                            }
+                        })
+                        
+                        // If all enemies are targeted, find nearest anyway (fallback)
+                        if (bestEnemy === null && enemiesRef.current.length > 0) {
+                            enemiesRef.current.forEach(enemy => {
+                                const distance = Math.sqrt(
+                                    Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
+                                    Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
+                                )
+                                if (distance < bestDistance) {
+                                    bestEnemy = enemy
+                                    bestDistance = distance
                                 }
                             })
-                            
-                            // If all enemies are targeted, find nearest anyway (fallback)
-                            if (bestEnemyIndex === -1 && enemiesRef.current.length > 0) {
-                                enemiesRef.current.forEach((enemy, index) => {
-                                    const distance = Math.sqrt(
-                                        Math.pow(missile.x - (enemy.x + enemy.width / 2), 2) +
-                                        Math.pow(missile.y - (enemy.y + enemy.height / 2), 2)
-                                    )
-                                    if (distance < bestDistance) {
-                                        bestEnemyIndex = index
-                                        bestDistance = distance
-                                    }
-                                })
-                            }
-                            
-                            if (bestEnemyIndex !== -1) {
-                                missile.targetEnemyIndex = bestEnemyIndex
-                                assignedTargets.add(bestEnemyIndex)
-                            }
+                        }
+                        
+                        if (bestEnemy !== null) {
+                            missile.targetEnemyId = bestEnemy.id // Store enemy ID, not index
+                            missile.targetLocked = true // Lock onto target - CANNOT change
+                            targetedEnemyIds.add(bestEnemy.id)
                         }
                     })
                     
@@ -1749,60 +1747,71 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     homingMissilesRef.current = homingMissilesRef.current
                         .map(missile => {
                             // Handle boss targeting
-                            if (missile.targetBoss && bossRef.current) {
-                                const boss = bossRef.current
-                                const targetX = boss.x + boss.width / 2
-                                const targetY = boss.y + boss.height / 2
-                                
-                                const dx = targetX - missile.x
-                                const dy = targetY - missile.y
-                                const distance = Math.sqrt(dx * dx + dy * dy)
-                                
-                                if (distance > 0) {
-                                    // Move toward boss with homing behavior
-                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
-                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
+                            if (missile.targetBoss) {
+                                if (bossRef.current) {
+                                    const boss = bossRef.current
+                                    const targetX = boss.x + boss.width / 2
+                                    const targetY = boss.y + boss.height / 2
                                     
-                                    return {
-                                        ...missile,
-                                        x: missile.x + moveX,
-                                        y: missile.y + moveY
+                                    const dx = targetX - missile.x
+                                    const dy = targetY - missile.y
+                                    const distance = Math.sqrt(dx * dx + dy * dy)
+                                    
+                                    if (distance > 0) {
+                                        // Move toward boss with homing behavior
+                                        const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                        const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                        
+                                        return {
+                                            ...missile,
+                                            x: missile.x + moveX,
+                                            y: missile.y + moveY
+                                        }
                                     }
                                 }
+                                // Boss destroyed - missile self-destructs (return null to be filtered out)
+                                return null
                             }
                             
-                            // Handle enemy targeting
-                            if (missile.targetEnemyIndex !== null && 
-                                missile.targetEnemyIndex < enemiesRef.current.length &&
-                                enemiesRef.current[missile.targetEnemyIndex] !== undefined) {
-                                const target = enemiesRef.current[missile.targetEnemyIndex]
-                                const targetX = target.x + target.width / 2
-                                const targetY = target.y + target.height / 2
-                                
-                                const dx = targetX - missile.x
-                                const dy = targetY - missile.y
-                                const distance = Math.sqrt(dx * dx + dy * dy)
-                                
-                                if (distance > 0) {
-                                    // Move toward target with homing behavior
-                                    const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
-                                    const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
+                            // Handle enemy targeting - find target by ID
+                            if (missile.targetEnemyId !== null) {
+                                const target = enemiesRef.current.find(e => e.id === missile.targetEnemyId)
+                                if (target) {
+                                    const targetX = target.x + target.width / 2
+                                    const targetY = target.y + target.height / 2
                                     
-                                    return {
-                                        ...missile,
-                                        x: missile.x + moveX,
-                                        y: missile.y + moveY
+                                    const dx = targetX - missile.x
+                                    const dy = targetY - missile.y
+                                    const distance = Math.sqrt(dx * dx + dy * dy)
+                                    
+                                    if (distance > 0) {
+                                        // Move toward target with homing behavior
+                                        const moveX = (dx / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                        const moveY = (dy / distance) * HOMING_MISSILE_SPEED * deltaTime
+                                        
+                                        return {
+                                            ...missile,
+                                            x: missile.x + moveX,
+                                            y: missile.y + moveY
+                                        }
                                     }
+                                } else {
+                                    // Target destroyed - missile self-destructs
+                                    return null
                                 }
+                            } else if (missile.targetLocked && !missile.targetBoss) {
+                                // Locked but no target ID - self-destruct
+                                return null
                             }
-                            // If no target, move upward
+                            // If no target and not locked yet, move upward
                             return {
                                 ...missile,
                                 y: missile.y - HOMING_MISSILE_SPEED
                             }
                         })
                         .filter(missile => {
-                            // Remove if off screen
+                            // Remove if null (self-destructed) or off screen
+                            if (missile === null) return false
                             if (missile.y < -missile.height || missile.y > CANVAS_HEIGHT ||
                                 missile.x < -missile.width || missile.x > CANVAS_WIDTH) {
                                 return false
@@ -1888,7 +1897,9 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     // Random horizontal velocity (left or right)
                     const direction = Math.random() < 0.5 ? -1 : 1
                     const isMega = Math.random() < megaEnemySpawnChance
+                    enemyIdCounterRef.current += 1
                     enemiesRef.current.push({
+                        id: enemyIdCounterRef.current, // Unique ID for targeting
                         x: Math.random() * (CANVAS_WIDTH - 40) + 20,
                         y: -30,
                         width: 30,
