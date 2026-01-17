@@ -3845,27 +3845,40 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                     
                     const centerX = powerup.x
                     const centerY = powerup.y
-                    const symbolSize = powerupRadiusX * 0.5
+                    // Use base size for vertical line (no stretching)
+                    const symbolSizeY = powerup.size * 0.5
+                    // Use stretched size for horizontal line on mobile to match the powerup circle
+                    const symbolSizeX = isMobile ? powerup.size * aspectRatio * 0.5 : powerup.size * 0.5
+                    // Separate sizes for circles to match the stretched powerup circle
+                    const circleRadiusX = powerupRadiusX * 0.5
                     
                     // Crosshair lines
                     ctx.beginPath()
-                    // Horizontal line
-                    ctx.moveTo(centerX - symbolSize, centerY)
-                    ctx.lineTo(centerX + symbolSize, centerY)
-                    // Vertical line
-                    ctx.moveTo(centerX, centerY - symbolSize)
-                    ctx.lineTo(centerX, centerY + symbolSize)
+                    // Horizontal line (stretched on mobile to match powerup circle)
+                    ctx.moveTo(centerX - symbolSizeX, centerY)
+                    ctx.lineTo(centerX + symbolSizeX, centerY)
+                    // Vertical line (not stretched)
+                    ctx.moveTo(centerX, centerY - symbolSizeY)
+                    ctx.lineTo(centerX, centerY + symbolSizeY)
                     ctx.stroke()
                     
                     // Center circle
                     ctx.beginPath()
-                    ctx.arc(centerX, centerY, symbolSize * 0.3, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(centerX, centerY, circleRadiusX * 0.3, symbolSizeY * 0.3, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(centerX, centerY, symbolSizeY * 0.3, 0, Math.PI * 2)
+                    }
                     ctx.fill()
                     ctx.stroke()
                     
                     // Outer circle
                     ctx.beginPath()
-                    ctx.arc(centerX, centerY, symbolSize * 0.7, 0, Math.PI * 2)
+                    if (isMobile) {
+                        ctx.ellipse(centerX, centerY, circleRadiusX * 0.7, symbolSizeY * 0.7, 0, 0, Math.PI * 2)
+                    } else {
+                        ctx.arc(centerX, centerY, symbolSizeY * 0.7, 0, Math.PI * 2)
+                    }
                     ctx.stroke()
                     
                     ctx.restore()
