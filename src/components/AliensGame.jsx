@@ -2500,7 +2500,16 @@ function AliensGame({ savedGameState, onSaveGameState, onClearGameState }) {
                             enemy.y + enemy.height > player.y - 20
                         ) {
                             if (magicDefenceActive) {
-                                // Magic defence active: give points instead of losing life
+                                // Magic defence active: destroy enemy with explosion and give points instead of losing life
+                                const enemyCenterX = enemy.x + enemy.width / 2
+                                const enemyCenterY = enemy.y + enemy.height / 2
+                                // Create explosion at enemy center (fancy for mega enemies)
+                                enemyExplosionsRef.current.push({
+                                    particles: enemy.isMega 
+                                        ? createMegaEnemyExplosion(enemyCenterX, enemyCenterY)
+                                        : createEnemyExplosion(enemyCenterX, enemyCenterY),
+                                    startTime: Date.now()
+                                })
                                 const basePoints = enemy.isMega ? 500 : 100
                                 setScore(prev => prev + (basePoints * scoreMultiplier))
                                 // Defence hit sound
