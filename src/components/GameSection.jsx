@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 // Game preview constants (scaled down)
 const PREVIEW_WIDTH = 800
@@ -399,7 +398,7 @@ function GameSection() {
                 }
             })
 
-            // Draw title "Hostile Space" (1.6x wider on mobile, height stays same)
+            // Draw title "AstroNoiser" (1.6x wider on mobile, height stays same)
             ctx.fillStyle = '#00FFFF'
             ctx.font = 'bold 48px "Courier New", monospace'
             ctx.textAlign = 'center'
@@ -407,10 +406,10 @@ function GameSection() {
             if (isMobile) {
                 ctx.save()
                 ctx.scale(1.6, 1.0)
-                ctx.fillText('HOSTILE SPACE', PREVIEW_WIDTH / 2 / 1.6, PREVIEW_HEIGHT / 2 - 15)
+                ctx.fillText('AstroNoiser', PREVIEW_WIDTH / 2 / 1.6, PREVIEW_HEIGHT / 2 - 15)
                 ctx.restore()
             } else {
-                ctx.fillText('HOSTILE SPACE', PREVIEW_WIDTH / 2, PREVIEW_HEIGHT / 2 - 15)
+                ctx.fillText('AstroNoiser', PREVIEW_WIDTH / 2, PREVIEW_HEIGHT / 2 - 15)
             }
 
             // Draw "Play Now!" below title (1.6x wider on mobile, height stays same, darker blue)
@@ -439,8 +438,10 @@ function GameSection() {
 
     return (
         <section id="game-section" className="space-y-6">
-            <Link 
-                to="/aliens" 
+            <a 
+                href="https://astronoiser.com" 
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block"
             >
                 <div className="bg-dark-gray rounded-xl shadow-inner shadow-dark-gray/50 border-2 border-neon-cyan/50 transition-all duration-300 ease-in-out hover:translate-y-[-4px] hover:scale-[1.02] hover:shadow-[0_10px_20px_rgba(0,255,255,0.4)] hover:border-neon-cyan overflow-hidden">
@@ -450,7 +451,7 @@ function GameSection() {
                         style={{ minHeight: '200px' }}
                     />
                 </div>
-            </Link>
+            </a>
         </section>
     )
 }
