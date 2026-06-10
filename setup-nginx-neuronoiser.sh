@@ -39,6 +39,12 @@ server {
     root /home/deploy/neuronoiser-site/dist;
     index index.html;
 
+    # HTML entry point must NEVER be stored, so cold loads always get the latest
+    # asset hashes (prevents stale-bundle / wedged-PWA bugs).
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
