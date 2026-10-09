@@ -1,4 +1,5 @@
 import Hero from '../components/Hero'
+import AlbumRelease from '../components/AlbumRelease'
 import StreamingLinks from '../components/StreamingLinks'
 import Bio from '../components/Bio'
 import Footer from '../components/Footer'
@@ -14,6 +15,7 @@ function Home() {
             <AnimatedSection delay={400} animationType="animate-slide-in-top">
                 <Hero />
             </AnimatedSection>
+            <AlbumRelease />
             <StreamingLinks />
             <AnimatedSection delay={1150}>
                 <Bio />

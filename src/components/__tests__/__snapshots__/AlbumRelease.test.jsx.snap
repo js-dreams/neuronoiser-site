@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AlbumRelease > matches snapshot 1`] = `
+<div>
+  <section
+    class="space-y-6"
+    id="album-section"
+  >
+    <div
+      class="opacity-0"
+    >
+      <h2
+        class="text-l md:text-4xl font-mono font-semibold text-neon-cyan border-b-2 border-neon-cyan/50 pb-2"
+      >
+        / 
+        {
+         New Album - Available Now! 
+        }
+      </h2>
+    </div>
+    <div
+      class="opacity-0"
+    >
+      <a
+        class="block rounded-xl overflow-hidden border-2 border-neon-cyan/50 shadow-2xl shadow-neon-cyan/20 transition-all duration-300 ease-in-out hover:translate-y-[-4px] hover:border-neon-cyan hover:shadow-[0_10px_30px_rgba(0,255,255,0.4)]"
+        href="https://self-awareness.neuronoiser.com/"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <img
+          alt="Self Awareness Is Overrated — album art by neuronoiser. Listen now."
+          class="w-full h-auto block"
+          src="/albums/self-awareness-is-overrated.webp"
+        />
+      </a>
+    </div>
+  </section>
+</div>
+`;
