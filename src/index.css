@@ -293,3 +293,27 @@ body {
 .animate-slide-in-bottom-right {
     animation: slideInBottomRight 1.1s cubic-bezier(0.25, 1.7, 0.35, 1.2) forwards;
 }
+
+/* Follow row — deliberately lighter than .streaming-link (no card padding, no
+   lift on hover) so it cannot compete with the album or the streaming grid,
+   but far louder than the footer's grey mailto. */
+.follow-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(0, 255, 255, 0.35);
+    background-color: rgba(31, 41, 55, 0.6);
+    color: #D1D5DB;
+    text-decoration: none;
+    transition: all 0.3s ease-in-out;
+}
+
+.follow-link:hover {
+    color: #00FFFF;
+    border-color: #00FFFF;
+    background-color: #1F2937;
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.25);
+}
