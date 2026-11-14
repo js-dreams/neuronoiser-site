@@ -5,15 +5,16 @@ import FollowLink from '../FollowLink'
 describe('FollowLink', () => {
   it('links to the X account', () => {
     const { getByRole } = render(<FollowLink />)
-    const link = getByRole('link')
+    const link = getByRole('link', { name: /on X/i })
     expect(link).toHaveAttribute('href', 'https://x.com/neuronoiser')
   })
 
   it('opens in a new tab without leaking the referrer window', () => {
-    const { getByRole } = render(<FollowLink />)
-    const link = getByRole('link')
-    expect(link).toHaveAttribute('target', '_blank')
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    const { getAllByRole } = render(<FollowLink />)
+    for (const link of getAllByRole('link')) {
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    }
   })
 
   it('spells out the handle rather than showing a bare glyph', () => {
@@ -21,12 +22,18 @@ describe('FollowLink', () => {
     // icon is the thing Danny's design notes call out as understated-to-the-
     // point-of-invisible.
     const { getByText } = render(<FollowLink />)
-    expect(getByText(/@neuronoiser/)).toBeInTheDocument()
+    expect(getByText('@neuronoiser')).toBeInTheDocument()
     expect(getByText(/Follow/)).toBeInTheDocument()
   })
 
   it('is reachable by assistive tech', () => {
     const { getByLabelText } = render(<FollowLink />)
     expect(getByLabelText(/Follow neuronoiser on X/i)).toBeInTheDocument()
+  })
+  it('links to the Linktree page, labelled', () => {
+    const { getByRole, getByText } = render(<FollowLink />)
+    const link = getByRole('link', { name: /Linktree/i })
+    expect(link).toHaveAttribute('href', 'https://linktr.ee/neuronoiser')
+    expect(getByText('linktr.ee/neuronoiser')).toBeInTheDocument()
   })
 })
